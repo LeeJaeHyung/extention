@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>차이비즈 월드페이 자동 결제</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title">차이비즈 월드페이 자동 결제</div>
+      <div class="ver" id="ver"></div>
+    </header>
+
+    <section class="card">
+      <label class="row">
+        <input type="checkbox" id="autoClick" />
+        <span>
+          <b>결제 버튼 자동 클릭</b>
+          <small>끄면 월드페이 선택·확인까지만 하고 «결제 버튼을 누르세요» 띠를 띄웁니다.</small>
+        </span>
+      </label>
+      <label class="row">
+        <input type="checkbox" id="dryRun" />
+        <span>
+          <b>시험 모드(dry-run)</b>
+          <small>결제 버튼 직전까지 모두 하고 «여기서 눌렀을 것» 만 띄웁니다. 결제 버튼은 누르지 않습니다.</small>
+        </span>
+      </label>
+      <div class="mode" id="mode"></div>
+    </section>
+
+    <section class="card">
+      <label class="row">
+        <input type="checkbox" id="testJobRun" />
+        <span>
+          <b>시험 작업 받기</b>
+          <small>관리자 «월드페이 결제 시험» 에서 만든 작업을 서버에서 받아 결제 페이지를 엽니다. 꺼져 있으면 서버를 부르지 않습니다.</small>
+        </span>
+      </label>
+      <label class="row">
+        <input type="checkbox" id="passwordAutoFill" />
+        <span>
+          <b>비밀번호 자동 입력</b>
+          <small>시험 작업에서만 — 관리자 웹에 저장한 결제 비밀번호를 비밀번호 창이 뜬 순간 1회 받아 넣고 «下一步» 을 누릅니다. 칸이 받지 않거나 틀리면 다시 넣지 않고 직접 입력으로 넘깁니다.</small>
+        </span>
+      </label>
+      <div class="srv" id="testSrv"></div>
+      <div class="srv-actions">
+        <button type="button" id="testClaimNow">지금 확인</button>
+        <button type="button" id="testResume" hidden>다시 시작</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <label class="row">
+        <input type="checkbox" id="serverAutoRun" />
+        <span>
+          <b>서버 작업 자동 실행</b>
+          <small>켜면 30초마다 서버에서 결제 작업을 받아 결제 페이지를 스스로 엽니다. 꺼져 있으면 서버를 부르지 않습니다.</small>
+        </span>
+      </label>
+      <label class="row">
+        <input type="checkbox" id="serverPasswordAutoFill" />
+        <span>
+          <b>비밀번호 자동 입력(자동 결제)</b>
+          <small>서버 자동 결제 작업에서 — 관리자 웹에 저장한 결제 비밀번호를 비밀번호 창이 뜬 순간 1회 받아 넣습니다. 끄면 사람이 직접 입력합니다.</small>
+        </span>
+      </label>
+      <div class="srv" id="srv"></div>
+      <div class="srv-actions">
+        <button type="button" id="claimNow">지금 확인</button>
+        <button type="button" id="resume" hidden>다시 시작</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="sec">대기 중인 작업 <span class="muted">(10분 · 한 번 쓰면 끝)</span></div>
+      <ul id="jobs" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="sec">최근 결과 <span class="muted">(브라우저를 닫으면 사라짐)</span></div>
+      <ul id="results" class="list"></ul>
+    </section>
+
+    <footer class="muted">
+      관리자 웹 «1688 결제 대기» 의 「결제 링크 받기」 로 연 탭과, 서버 작업으로 익스텐션이 연 탭에서만 동작합니다. 월드페이(跨境宝) 밖의 수단·조합결제는 누르지 않습니다.
+    </footer>
+    <script src="../src/config.js"></script>
+    <script src="../src/core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

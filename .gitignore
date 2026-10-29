@@ -1,0 +1,10 @@
+.DS_Store
+Thumbs.db
+*.zip
+*.log
+node_modules/
+chibiz-deposit-agent/target/
+chibiz-deposit-agent/.idea/
+chibiz-deposit-agent/*.iml
+# 로컬 PC 전용(비밀번호·키). 저장소엔 config.example.json 만 둔다
+chibiz-deposit-agent/config.json

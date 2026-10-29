@@ -1,0 +1,21 @@
+{
+  "port": 18080,
+  "db": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "root",
+    "password": "1234567",
+    "database": "chibiz_bank"
+  },
+  "matching": {
+    "pollSec": 60,
+    "matchMin": 10,
+    "lookbackDays": 10,
+    "beforeRequestDays": 3,
+    "maxCallbackTries": 50
+  },
+  "sites": [
+    { "code": "CHIBIZ", "baseUrl": "https://www.chibiz.co.kr/stage-api", "key": "" },
+    { "code": "SUPER", "baseUrl": "", "key": "" }
+  ]
+}

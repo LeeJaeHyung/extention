@@ -1,0 +1,67 @@
+CREATE TABLE IF NOT EXISTS bank_deposit (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  dedup_key       VARCHAR(255) NOT NULL COMMENT '거래일자|거래시간|입금액|출금액|잔액|적요 — 같은 거래 중복 저장 방지',
+  tx_date         DATE         NOT NULL COMMENT '거래일자',
+  tx_time         VARCHAR(8)   NULL     COMMENT '거래시간 HH:MM',
+  kind            VARCHAR(20)  NULL     COMMENT '구분(대체·타행이체 등)',
+  memo            VARCHAR(100) NOT NULL COMMENT '적요 = 입금자명',
+  deposit_amount  BIGINT       NOT NULL DEFAULT 0 COMMENT '입금액(원)',
+  withdraw_amount BIGINT       NOT NULL DEFAULT 0 COMMENT '출금액(원)',
+  balance         BIGINT       NULL     COMMENT '거래 후 잔액(원)',
+  branch          VARCHAR(50)  NULL     COMMENT '거래점',
+  account_masked  VARCHAR(20)  NULL     COMMENT '계좌번호 끝 4자리',
+  raw_text        VARCHAR(1000) NULL    COMMENT '표 한 줄 원문',
+  fetched_at      DATETIME     NOT NULL COMMENT '익스텐션이 읽은 시각',
+  ext_version     VARCHAR(20)  NULL,
+  approved        TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 신청과 매칭됨(승인)',
+  approved_claim_id BIGINT     NULL     COMMENT 'deposit_claim.id',
+  approved_at     DATETIME     NULL,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_dedup (dedup_key),
+  KEY idx_tx (tx_date, tx_time),
+  KEY idx_memo (memo),
+  KEY idx_approved (approved, tx_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='하나은행 빠른조회 입금 내역(익스텐션 수집)';
+
+CREATE TABLE IF NOT EXISTS collect_run (
+  id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+  run_at      DATETIME     NOT NULL COMMENT '실행 시각',
+  ok          TINYINT      NOT NULL COMMENT '1 성공 · 0 실패',
+  rows_read   INT          NOT NULL DEFAULT 0 COMMENT '화면에서 읽은 행 수',
+  inserted    INT          NOT NULL DEFAULT 0 COMMENT '새로 저장된 행 수',
+  error       VARCHAR(500) NULL     COMMENT '실패 사유',
+  ext_version VARCHAR(20)  NULL,
+  KEY idx_run (run_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='수집 실행 기록 — 언제까지 세션이 살아있었는지 확인용';
+
+-- 사이트(CHIBIZ·SUPER) 신청 큐의 병합본. 정본은 여기(어느 입금과 붙었는지·콜백 결과를 기억).
+CREATE TABLE IF NOT EXISTS deposit_claim (
+  id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+  site_code        VARCHAR(20)  NOT NULL,
+  claim_id         VARCHAR(40)  NOT NULL COMMENT '사이트 쪽 claimId',
+  member_id        VARCHAR(40)  NULL,
+  member_name      VARCHAR(100) NULL,
+  depositor_names  VARCHAR(500) NOT NULL COMMENT '입금자명 후보(쉼표)',
+  amount           BIGINT       NOT NULL COMMENT '기대 입금액(원)',
+  tolerance_pct    DECIMAL(5,2) NOT NULL DEFAULT 0,
+  claim_type       VARCHAR(20)  NULL     COMMENT 'KRW_FEE · KRW_DEPOSIT · USD_FEE',
+  ref_id           VARCHAR(80)  NULL,
+  requested_at     DATETIME     NOT NULL,
+  expires_at       DATETIME     NOT NULL,
+  status           VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING MATCHED CANCELLED',
+  bank_deposit_id  BIGINT       NULL,
+  matched_depositor VARCHAR(100) NULL,
+  matched_amount   BIGINT       NULL,
+  matched_tx_date  DATE         NULL,
+  matched_tx_time  VARCHAR(8)   NULL,
+  matched_at       DATETIME     NULL,
+  callback_status  VARCHAR(10)  NOT NULL DEFAULT 'NONE' COMMENT 'NONE OK ALREADY FAIL',
+  callback_tries   INT          NOT NULL DEFAULT 0,
+  callback_at      DATETIME     NULL,
+  callback_last_error VARCHAR(300) NULL,
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME     NULL,
+  UNIQUE KEY uk_site_claim (site_code, claim_id),
+  KEY idx_status (status, requested_at),
+  KEY idx_cb (status, callback_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 신청 큐(사이트 폴링 병합본) · 매칭·콜백 기록';
