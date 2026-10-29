@@ -87,7 +87,9 @@
     const f = form()
     const fn = globalThis.pbk && globalThis.pbk.quickService && globalThis.pbk.quickService.acctInquiry
       && globalThis.pbk.quickService.acctInquiry.submitInquiry
-    return !!(f && fn && f.acctNo && f.acctNo.value && f.acctPw && f.acctPw.value)
+    // 비밀번호 칸은 보안 키패드(nxKey·transkey)가 값을 숨겨 둘 수 있어 보지 않는다(윈도우 실측 2026-10-29: 조회 뒤에도 value 가 비어 있음).
+    // 계좌번호가 있고 결과 표가 한 번 그려졌으면(=조회가 성공했으면) 재조회할 수 있다.
+    return !!(f && fn && f.acctNo && f.acctNo.value && resultTable())
   }
 
   function ymd(d) {
@@ -276,7 +278,7 @@
   function start() {
     if (running) return
     if (!canRequery()) {
-      lastError = '계좌번호·비밀번호·사업자번호를 넣고 한 번 조회한 뒤 [실행]을 누르세요'
+      lastError = '계좌번호·비밀번호·사업자번호를 넣고 [조회]를 눌러 결과 표가 보인 뒤 [실행]을 누르세요'
       render()
       return
     }
