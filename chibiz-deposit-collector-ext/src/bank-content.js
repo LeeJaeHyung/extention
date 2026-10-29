@@ -83,13 +83,35 @@
     return document.forms['frmQuickInquiry']
   }
 
+  /** 페이지 세계의 다리(page-bridge.js)에 명령을 보내고 응답을 기다린다. 콘텐츠 스크립트는 pbk.* 를 직접 못 부른다. */
+  function pageCmd(cmd, n) {
+    return new Promise((resolve, reject) => {
+      const id = String(Date.now()) + Math.random().toString(36).slice(2, 7)
+      const timer = setTimeout(() => {
+        document.removeEventListener('chibiz-bank-ack', onAck)
+        reject(new Error('페이지 다리 응답 없음(page-bridge)'))
+      }, 3000)
+      function onAck(e) {
+        let d = {}
+        try { d = JSON.parse(e.detail || '{}') } catch (err) { d = {} }
+        if (d.id !== id) return
+        clearTimeout(timer)
+        document.removeEventListener('chibiz-bank-ack', onAck)
+        if (d.ok) resolve(true)
+        else reject(new Error(d.error || '페이지 명령 실패'))
+      }
+      document.addEventListener('chibiz-bank-ack', onAck)
+      document.dispatchEvent(new CustomEvent('chibiz-bank-cmd', { detail: JSON.stringify({ id, cmd, n }) }))
+    })
+  }
+
+  function bridgeReady() {
+    return document.documentElement.getAttribute('data-chibiz-bank-bridge') === 'ready'
+  }
+
   function canRequery() {
-    const f = form()
-    const fn = globalThis.pbk && globalThis.pbk.quickService && globalThis.pbk.quickService.acctInquiry
-      && globalThis.pbk.quickService.acctInquiry.submitInquiry
-    // 비밀번호 칸은 보안 키패드(nxKey·transkey)가 값을 숨겨 둘 수 있어 보지 않는다(윈도우 실측 2026-10-29: 조회 뒤에도 value 가 비어 있음).
-    // 계좌번호가 있고 결과 표가 한 번 그려졌으면(=조회가 성공했으면) 재조회할 수 있다.
-    return !!(f && fn && f.acctNo && f.acctNo.value && resultTable())
+    // 비밀번호·계좌번호 칸은 보안 키패드가 값을 숨길 수 있어 보지 않는다. 결과 표가 한 번 그려졌고(=조회 성공) 페이지 다리가 준비됐으면 된다.
+    return !!(form() && bridgeReady() && resultTable())
   }
 
   function ymd(d) {
@@ -147,7 +169,7 @@
     const f = form()
     setConditions()
     const before = resultTable()
-    globalThis.pbk.quickService.acctInquiry.submitInquiry(f)
+    await pageCmd('submit')
     const until = Date.now() + B.requeryTimeoutMs
     while (Date.now() < until) {
       await sleep(500)
@@ -187,8 +209,7 @@
   async function goPage(n) {
     const before = resultTable()
     const beforeFirst = before ? before.querySelector('tbody tr').textContent : ''
-    if (typeof globalThis.goContinuousPage !== 'function') throw new Error('페이지 함수 없음')
-    globalThis.goContinuousPage(n, 'frmQuickInquiry', 'searchBtn')
+    await pageCmd('page', n)
     const until = Date.now() + B.requeryTimeoutMs
     while (Date.now() < until) {
       await sleep(500)
@@ -278,7 +299,7 @@
   function start() {
     if (running) return
     if (!canRequery()) {
-      lastError = '계좌번호·비밀번호·사업자번호를 넣고 [조회]를 눌러 결과 표가 보인 뒤 [실행]을 누르세요'
+      lastError = bridgeReady() ? '계좌번호·비밀번호·사업자번호를 넣고 [조회]를 눌러 결과 표가 보인 뒤 [실행]을 누르세요' : '페이지 다리가 아직 준비되지 않았습니다 — 탭을 새로고침한 뒤 다시 조회하세요'
       render()
       return
     }
