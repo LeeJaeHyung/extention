@@ -23,6 +23,10 @@
 7. 크롬 `chrome://extensions` → 개발자 모드 → 압축해제된 확장 프로그램 로드 → `chibiz-deposit-collector-ext` 폴더
 8. 하나은행 빠른조회 https://www.kebhana.com/flex/quick/quickService.do?subMenu=1 에서 계좌번호·비밀번호·사업자번호 입력 → 조회 → 오른쪽 아래 패널 **[실행]**
 
+## 설치형(exe)으로 만들기 — JDK 없는 PC 에서도 실행
+수집 PC 에서 `chibiz-deposit-agent\make-app.bat` 한 번 → `dist\차이비즈 입금 에이전트\차이비즈 입금 에이전트.exe` (자바 런타임 포함 · 콘솔 창 없음).
+exe 옆의 `config.json` 을 채우고 더블클릭. 시작프로그램에는 exe 바로가기. (윈도우에서만 만들 수 있음)
+
 ## 갱신
 ```
 cd C:\chibiz\extention
