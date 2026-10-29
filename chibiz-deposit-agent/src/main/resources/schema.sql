@@ -65,3 +65,13 @@ CREATE TABLE IF NOT EXISTS deposit_claim (
   KEY idx_status (status, requested_at),
   KEY idx_cb (status, callback_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 신청 큐(사이트 폴링 병합본) · 매칭·콜백 기록';
+
+-- 에이전트 동작 로그(화면 로그 탭·agent.log 와 같은 내용). MCP list_logs 로 조회.
+CREATE TABLE IF NOT EXISTS agent_log (
+  id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+  logged_at DATETIME     NOT NULL,
+  level     VARCHAR(8)   NOT NULL COMMENT 'INFO · WARN',
+  message   VARCHAR(1000) NOT NULL,
+  KEY idx_at (logged_at),
+  KEY idx_level (level, logged_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 에이전트 동작 로그';

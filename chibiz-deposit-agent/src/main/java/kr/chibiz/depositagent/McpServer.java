@@ -163,6 +163,8 @@ public class McpServer {
         arr.add(tool("find_candidates", "특정 신청이 왜 안 맞았는지: 같은 이름(정규화)·같은 금액 범위·시각 조건별로 후보 입금과 탈락 사유를 보여준다.",
                 obj("site", "string", "사이트 코드", "claim_id", "string", "사이트 쪽 claimId")));
         arr.add(tool("match_now", "지금 바로 폴링→대조→콜백을 1회 실행(비동기). 결과는 잠시 뒤 list_matches 로 확인.", obj()));
+        arr.add(tool("list_logs", "에이전트 동작 로그(수집 저장·대조·매칭·콜백·오류). 시각 범위·등급·문구로 거른다. 최신순.",
+                obj("since", "string", "이 시각 이후 (yyyy-MM-dd HH:mm, 기본 24시간 전)", "until", "string", "이 시각 이전 (yyyy-MM-dd HH:mm)", "level", "string", "INFO | WARN", "contains", "string", "메시지 부분 일치", "limit", "integer", "최대 건수(기본 200, 최대 500)")));
         return arr;
     }
 
@@ -249,6 +251,26 @@ public class McpServer {
                 matcher.runNow();
                 data = Map.of("ok", true, "note", "폴링→대조→콜백을 시작했습니다. 잠시 뒤 list_matches / summary 로 확인하세요.");
                 break;
+            case "list_logs": {
+                List<Object> args = new ArrayList<>();
+                StringBuilder sql = new StringBuilder("SELECT logged_at, level, message FROM agent_log WHERE logged_at >= ?");
+                args.add(text(a, "since", java.time.LocalDateTime.now().minusDays(1).withNano(0).toString().replace('T', ' ')));
+                if (!text(a, "until", "").isEmpty()) {
+                    sql.append(" AND logged_at <= ?");
+                    args.add(text(a, "until", ""));
+                }
+                if (!text(a, "level", "").isEmpty()) {
+                    sql.append(" AND level = ?");
+                    args.add(text(a, "level", "").toUpperCase());
+                }
+                if (!text(a, "contains", "").isEmpty()) {
+                    sql.append(" AND message LIKE ?");
+                    args.add("%" + text(a, "contains", "") + "%");
+                }
+                sql.append(" ORDER BY id DESC LIMIT ").append(limit(a, 200));
+                data = db.query(sql.toString(), args.toArray());
+                break;
+            }
             default:
                 throw new IllegalArgumentException("unknown tool " + name);
         }

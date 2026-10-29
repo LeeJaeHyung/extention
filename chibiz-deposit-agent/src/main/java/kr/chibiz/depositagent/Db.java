@@ -135,6 +135,16 @@ public class Db {
         }
     }
 
+    /** 동작 로그 1줄(AgentLog 의 DB sink) */
+    public void saveLog(LocalDateTime at, String level, String message) throws SQLException {
+        try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement("INSERT INTO agent_log (logged_at, level, message) VALUES (?,?,?)")) {
+            ps.setTimestamp(1, Timestamp.valueOf(at));
+            ps.setString(2, level);
+            ps.setString(3, left(message, 1000));
+            ps.executeUpdate();
+        }
+    }
+
     // ── 신청 큐 ──
 
     public void upsertClaim(String site, String claimId, String memberId, String memberName, String names, long amount, double tol, String type, String refId,

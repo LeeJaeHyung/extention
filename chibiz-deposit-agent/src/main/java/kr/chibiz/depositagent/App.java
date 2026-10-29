@@ -113,6 +113,7 @@ public class App extends Application {
         db = new Db(cfg.db);
         try {
             db.init();
+            AgentLog.setDbSink(db::saveLog);
             Platform.runLater(() -> set(statusDb, "DB " + cfg.db.database + " 연결됨", "chip-ok"));
             AgentLog.info("DB 준비됨 " + cfg.db.database);
         } catch (Exception e) {

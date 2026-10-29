@@ -55,5 +55,5 @@ chibiz-deposit-agent\build.bat     (에이전트가 바뀐 경우)
 claude mcp add --transport http chibiz-deposit http://<수집PC-IP>:18081/mcp --header "Authorization: Bearer <config.json 의 mcp.token>"
 ```
 - 수집 PC 윈도우 방화벽에서 TCP 18081 인바운드 허용(사내망만). 토큰은 `config.json` 의 `mcp.token`(길고 임의로). 비우면 MCP 가 켜지지 않음.
-- 도구: `summary` · `list_deposits`(기간·입금자명·금액·승인 여부) · `list_runs`(실패만) · `list_claims`(상태·사이트) · `list_matches` · `find_candidates`(신청이 왜 안 맞았는지 후보·탈락 사유) · `match_now`
+- 도구: `summary` · `list_deposits`(기간·입금자명·금액·승인 여부) · `list_runs`(실패만) · `list_claims`(상태·사이트) · `list_matches` · `find_candidates`(신청이 왜 안 맞았는지 후보·탈락 사유) · `match_now` · `list_logs`(동작 로그 — DB agent_log 에 저장, 시각·등급·문구로 조회)
 - 예: "어제 들어온 미매칭 입금 보여줘", "CHIBIZ 신청 123 이 왜 안 맞았는지 봐줘", "수집이 언제부터 실패했어?"
