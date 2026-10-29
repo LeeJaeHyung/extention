@@ -87,6 +87,14 @@ public class Config {
     }
 
     public static Config load() throws IOException {
-        return new ObjectMapper().readValue(file(), Config.class);
+        File f = file();
+        if (!f.exists()) {
+            // 설치 직후: config.json 이 없으면 config.example.json 을 복사해 시작한다(설치형 exe 배포용)
+            File ex = new File(f.getAbsoluteFile().getParentFile(), "config.example.json");
+            if (ex.exists()) {
+                java.nio.file.Files.copy(ex.toPath(), f.toPath());
+            }
+        }
+        return new ObjectMapper().readValue(f, Config.class);
     }
 }
