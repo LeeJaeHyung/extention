@@ -129,7 +129,7 @@ public class McpServer {
                     ObjectNode info = result.putObject("serverInfo");
                     info.put("name", "chibiz-deposit-agent");
                     info.put("version", "0.2.0");
-                    result.put("instructions", "차이비즈 입금 에이전트. 하나은행 빠른조회에서 수집한 입금(bank_deposit), 수집 실행 기록(collect_run), 사이트 신청 큐·매칭·콜백(deposit_claim)을 읽는다. "
+                    result.put("instructions", "차이비즈 입금 에이전트. 하나은행 빠른조회에서 수집한 입금(bank_deposit · 계좌가 여러 개면 account 로 구분), 수집 실행 기록(collect_run), 사이트 신청 큐·매칭·콜백(deposit_claim)을 읽는다. "
                             + "매칭 규칙: 입금자명 정규화(공백·법인표기·특수문자 제거) 완전 일치 + 금액 ±오차% + 입금 시각 ≥ 신청−" + cfg.matching.beforeRequestDays + "일, 신청 오래된 순. "
                             + "왜 안 맞았는지는 find_candidates 로 본다. 금액 단위 원.");
                     return ok(id, result);
@@ -156,7 +156,8 @@ public class McpServer {
         arr.add(tool("summary", "오늘 입금 건수·금액, 수집 실행 통계(마지막 성공·연속 실패), 신청 큐·콜백 상태 요약", obj()));
         arr.add(tool("list_deposits", "수집된 입금 내역. 날짜 범위·입금자명(부분 일치)·금액 범위·승인 여부로 거른다. 최신순.",
                 obj("from", "string", "시작일 yyyy-MM-dd (기본 7일 전)", "to", "string", "종료일 yyyy-MM-dd (기본 오늘)", "memo", "string", "입금자명 부분 일치",
-                        "min_amount", "integer", "최소 입금액(원)", "max_amount", "integer", "최대 입금액(원)", "approved", "boolean", "true=매칭된 것만 · false=미매칭만", "limit", "integer", "최대 건수(기본 100, 최대 500)")));
+                        "min_amount", "integer", "최소 입금액(원)", "max_amount", "integer", "최대 입금액(원)", "approved", "boolean", "true=매칭된 것만 · false=미매칭만",
+                        "account", "string", "계좌 끝4자리(예 7304) — 입금 받는 계좌가 여러 개일 때 구분", "limit", "integer", "최대 건수(기본 100, 최대 500)")));
         arr.add(tool("list_runs", "수집 실행 기록(10~15분 회차). 실패 원인·세션 끊김 시점 조사용.", obj("only_fail", "boolean", "실패만", "limit", "integer", "최대 건수(기본 100)")));
         arr.add(tool("list_claims", "사이트 신청 큐(병합본). 상태·사이트로 거른다.", obj("status", "string", "PENDING | MATCHED | CANCELLED", "site", "string", "CHIBIZ | SUPER", "limit", "integer", "최대 건수(기본 100)")));
         arr.add(tool("list_matches", "매칭(승인)된 신청과 붙은 입금, 콜백 결과.", obj("limit", "integer", "최대 건수(기본 100)")));
@@ -218,8 +219,16 @@ public class McpServer {
                     sql.append(" AND approved = ?");
                     args.add(a.get("approved").asBoolean() ? 1 : 0);
                 }
+                if (!text(a, "account", "").isEmpty()) {
+                    sql.append(" AND account_masked LIKE ?");
+                    args.add("%" + text(a, "account", "").replaceAll("[^0-9]", ""));
+                }
                 sql.append(" ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT ").append(limit(a, 100));
-                data = db.query(sql.toString(), args.toArray());
+                List<Map<String, Object>> rows = db.query(sql.toString(), args.toArray());
+                for (Map<String, Object> r : rows) {
+                    r.put("account", cfg.accountLabel(Db.str(r.get("account_masked"))));
+                }
+                data = rows;
                 break;
             }
             case "list_runs":

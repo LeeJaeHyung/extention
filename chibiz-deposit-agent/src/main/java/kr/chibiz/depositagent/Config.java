@@ -16,6 +16,26 @@ public class Config {
     public Matching matching = new Matching();
     public List<Site> sites = new ArrayList<>();
     public Mcp mcp = new Mcp();
+    /** 입금 받는 계좌 목록(끝4자리 → 이름). 화면·MCP 에서 계좌를 구분해 보여 준다. 비우면 끝4자리만 표시 */
+    public List<Account> accounts = new ArrayList<>();
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Account {
+        public String last4;
+        public String label;
+    }
+
+    /** 끝4자리 → "이름(****7304)" · 없으면 "****7304" */
+    public String accountLabel(String masked) {
+        String m = masked == null ? "" : masked;
+        String d = m.replaceAll("[^0-9]", "");
+        for (Account a : accounts) {
+            if (a.last4 != null && d.endsWith(a.last4.replaceAll("[^0-9]", "")) && a.label != null && !a.label.isBlank()) {
+                return a.label + " (" + m + ")";
+            }
+        }
+        return m.isEmpty() ? "-" : m;
+    }
 
     /** 사무실 다른 PC 의 Claude 가 붙는 MCP 서버(읽기 전용 + 대조 1회). 토큰이 비어 있으면 켜지지 않는다. */
     @JsonIgnoreProperties(ignoreUnknown = true)

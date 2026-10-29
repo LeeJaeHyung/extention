@@ -132,6 +132,16 @@ public class HttpApi {
             streak++;
         }
         out.put("consecutiveFails", streak);
+        List<Map<String, Object>> byAcct = db.query("SELECT account_masked, COUNT(*) n, IFNULL(SUM(deposit_amount),0) amount, SUM(approved) approved, MAX(CONCAT(tx_date,' ',IFNULL(tx_time,''))) last_tx FROM bank_deposit WHERE tx_date = CURDATE() GROUP BY account_masked ORDER BY account_masked");
+        for (Map<String, Object> r : byAcct) {
+            r.put("label", cfg.accountLabel(Db.str(r.get("account_masked"))));
+        }
+        out.put("todayByAccount", byAcct);
+        List<Map<String, Object>> accts = db.query("SELECT account_masked, COUNT(*) n, MAX(fetched_at) last_fetched FROM bank_deposit GROUP BY account_masked ORDER BY account_masked");
+        for (Map<String, Object> r : accts) {
+            r.put("label", cfg.accountLabel(Db.str(r.get("account_masked"))));
+        }
+        out.put("accounts", accts);
         out.put("claims", db.query("SELECT site_code, status, COUNT(*) n FROM deposit_claim GROUP BY site_code, status"));
         out.put("callbacks", db.query("SELECT callback_status, COUNT(*) n FROM deposit_claim WHERE status = 'MATCHED' GROUP BY callback_status"));
         out.put("sites", matcher.sites().stream().map(s -> s.code).toList());

@@ -122,3 +122,9 @@
 .dialog-pane .content { -fx-font-size: 16px; -fx-text-fill: -ink; }
 .dialog-pane .button { -fx-background-radius: 9999; -fx-padding: 8px 20px; -fx-background-color: -soft-cloud; -fx-text-fill: -ink; }
 .dialog-pane .button:default { -fx-background-color: -ink; -fx-text-fill: #ffffff; }
+
+/* 계좌별 오늘 입금 칩 줄 · 계좌 필터 */
+.account-row { -fx-padding: 0 24px 8px 24px; }
+.account-filter { -fx-background-color: -soft-cloud; -fx-background-radius: 9999; -fx-padding: 2px 8px; }
+.account-filter .list-cell { -fx-text-fill: -ink; -fx-font-size: 14px; }
+.account-filter .arrow { -fx-background-color: -ink; }

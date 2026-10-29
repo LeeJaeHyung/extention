@@ -65,6 +65,8 @@ public class App extends Application {
     private final Label statClaims = stat("-");
     private final Label statLastPoll = stat("-");
     private final ObservableList<Map<String, Object>> deposits = FXCollections.observableArrayList();
+    private final HBox accountRow = new HBox(8);
+    private final javafx.scene.control.ComboBox<String> accountFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체 계좌"));
     private final ObservableList<Map<String, Object>> runs = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> claims = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> matches = FXCollections.observableArrayList();
@@ -80,7 +82,12 @@ public class App extends Application {
         BorderPane root = new BorderPane();
         root.getStyleClass().add("canvas");
         root.setTop(new VBox(utilityBar(), nav()));
-        root.setCenter(new VBox(0, stats(), tabs()));
+        accountRow.getStyleClass().add("account-row");
+        accountRow.setAlignment(Pos.CENTER_LEFT);
+        root.setCenter(new VBox(0, stats(), accountRow, tabs()));
+        accountFilter.setValue("전체 계좌");
+        accountFilter.getStyleClass().add("account-filter");
+        accountFilter.setOnAction(e -> refreshSoon());
         Scene scene = new Scene(root, 1180, 760);
         scene.getStylesheets().add(App.class.getResource("/app.css").toExternalForm());
         stage.setScene(scene);
@@ -159,7 +166,13 @@ public class App extends Application {
         }
         try {
             Map<String, Object> s = api.summary();
-            List<Map<String, Object>> dep = db.query("SELECT tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300");
+            String acctFilter = accountFilter.getValue() == null || "전체 계좌".equals(accountFilter.getValue()) ? "" : accountFilter.getValue().replaceAll(".*\\*{4}", "").replaceAll("[^0-9]", "");
+            List<Map<String, Object>> dep = acctFilter.isEmpty()
+                    ? db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300")
+                    : db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit WHERE account_masked LIKE ? ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300", "%" + acctFilter);
+            for (Map<String, Object> r : dep) {
+                r.put("account", cfg.accountLabel(Db.str(r.get("account_masked"))));
+            }
             List<Map<String, Object>> run = db.query("SELECT run_at, ok, rows_read, inserted, error FROM collect_run ORDER BY id DESC LIMIT 200");
             List<Map<String, Object>> cl = db.query("SELECT site_code, claim_id, claim_type, member_name, depositor_names, amount, tolerance_pct, status, requested_at, expires_at FROM deposit_claim ORDER BY id DESC LIMIT 200");
             List<Map<String, Object>> mt = db.query("SELECT site_code, claim_id, claim_type, amount, matched_depositor, matched_amount, matched_tx_date, matched_tx_time, matched_at, callback_status, callback_tries, callback_last_error FROM deposit_claim WHERE status = 'MATCHED' ORDER BY matched_at DESC LIMIT 200");
@@ -187,6 +200,30 @@ public class App extends Application {
                 }
                 statClaims.setText("대기 " + pending + " · 매칭 " + matched);
                 statLastPoll.setText(matcher.lastPollAt() == null ? "-" : matcher.lastPollAt().format(TS));
+                // 계좌별 오늘 입금 칩 + 필터 목록
+                accountRow.getChildren().clear();
+                Label cap = new Label("계좌별 오늘");
+                cap.getStyleClass().add("stat-caption");
+                accountRow.getChildren().add(cap);
+                List<String> choices = new java.util.ArrayList<>(List.of("전체 계좌"));
+                for (Map<String, Object> r : (List<Map<String, Object>>) s.get("accounts")) {
+                    choices.add(cfg.accountLabel(Db.str(r.get("account_masked"))));
+                }
+                for (Map<String, Object> r : (List<Map<String, Object>>) s.get("todayByAccount")) {
+                    Label c = new Label(Db.str(r.get("label")) + " · " + Db.toLong(r.get("n")) + "건 · " + WON.format(Db.toLong(r.get("amount"))) + "원");
+                    c.getStyleClass().addAll("chip", "chip-ok");
+                    accountRow.getChildren().add(c);
+                }
+                if (((List<?>) s.get("todayByAccount")).isEmpty()) {
+                    Label c = new Label("오늘 입금 없음");
+                    c.getStyleClass().addAll("chip", "chip-muted");
+                    accountRow.getChildren().add(c);
+                }
+                String cur = accountFilter.getValue();
+                if (!choices.equals(new java.util.ArrayList<>(accountFilter.getItems()))) {
+                    accountFilter.getItems().setAll(choices);
+                    accountFilter.setValue(cur != null && choices.contains(cur) ? cur : "전체 계좌");
+                }
                 deposits.setAll(dep);
                 runs.setAll(run);
                 claims.setAll(cl);
@@ -242,13 +279,25 @@ public class App extends Application {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(
-                tab("입금 내역", table(deposits, "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80", "memo:적요(입금자명):220", "deposit_amount:입금액:120:won", "balance:잔액:130:won", "branch:거래점:140", "approved:승인:60:yn", "fetched_at:읽은 시각:150")),
+                tab("입금 내역", withFilter(table(deposits, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80", "memo:적요(입금자명):220", "deposit_amount:입금액:120:won", "balance:잔액:130:won", "branch:거래점:140", "approved:승인:60:yn", "fetched_at:읽은 시각:150"))),
                 tab("실행 기록", table(runs, "run_at:실행 시각:160", "ok:결과:70:okfail", "rows_read:읽은 행:80", "inserted:새로 저장:80", "error:실패 사유:600")),
                 tab("신청 큐", table(claims, "site_code:사이트:80", "claim_id:신청:80", "claim_type:유형:110", "member_name:회원:110", "depositor_names:입금자명 후보:260", "amount:금액:120:won", "tolerance_pct:오차%:60", "status:상태:90", "requested_at:신청 시각:150", "expires_at:만료:150")),
                 tab("매칭·콜백", table(matches, "site_code:사이트:80", "claim_id:신청:80", "claim_type:유형:110", "amount:신청 금액:110:won", "matched_depositor:입금자:160", "matched_amount:입금액:110:won", "matched_tx_date:거래일:100", "matched_tx_time:시간:60", "matched_at:매칭 시각:150", "callback_status:콜백:70", "callback_tries:시도:50", "callback_last_error:콜백 오류:300")),
                 tab("로그", logPane()));
         VBox.setVgrow(tabs, Priority.ALWAYS);
         return tabs;
+    }
+
+    /** 표 위에 계좌 필터 줄을 얹는다 */
+    private VBox withFilter(TableView<Map<String, Object>> tv) {
+        Label l = new Label("계좌");
+        l.getStyleClass().add("stat-caption");
+        HBox bar = new HBox(8, l, accountFilter);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setPadding(new Insets(8, 0, 8, 0));
+        VBox box = new VBox(0, bar, tv);
+        VBox.setVgrow(tv, Priority.ALWAYS);
+        return box;
     }
 
     private Tab tab(String name, javafx.scene.Node content) {
