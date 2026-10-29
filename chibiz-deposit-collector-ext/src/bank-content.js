@@ -310,7 +310,8 @@
     panel.innerHTML = ''
     const title = document.createElement('div')
     title.style.cssText = 'font-weight:700;margin-bottom:6px'
-    title.textContent = '차이비즈 입금 수집 ' + (running ? '● 실행 중' : '○ 대기')
+    const acct = accountMasked()
+    title.textContent = '차이비즈 입금 수집' + (acct ? ' ' + acct : '') + ' ' + (running ? '● 실행 중' : '○ 대기')
     const info = document.createElement('div')
     info.style.cssText = 'color:#444;white-space:pre-line;margin-bottom:8px'
     info.textContent = '재조회 ' + Math.round(B.intervalMinMs / 60000) + '~' + Math.round(B.intervalMaxMs / 60000) + '분 임의 · 에이전트 ' + B.agentUrl.replace(/^https?:\/\//, '')

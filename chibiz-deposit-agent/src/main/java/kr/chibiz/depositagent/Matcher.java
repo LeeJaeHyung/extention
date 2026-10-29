@@ -198,9 +198,14 @@ public class Matcher {
                 long amount = Db.toLong(c.get("amount"));
                 long tol = Math.round(amount * toDouble(c.get("tolerance_pct")) / 100.0);
                 LocalDateTime earliest = parse(Db.str(c.get("requested_at")).replace(' ', 'T')).minusDays(cfg.matching.beforeRequestDays);
+                String wantAcct = siteAccount(Db.str(c.get("site_code")));
                 Map<String, Object> hit = null;
                 for (Map<String, Object> d : deps) {
                     if (used.contains(d.get("id"))) {
+                        continue;
+                    }
+                    // 사이트에 계좌가 지정돼 있으면 그 계좌(끝4자리) 입금만
+                    if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
                         continue;
                     }
                     if (Math.abs(Db.toLong(d.get("deposit_amount")) - amount) > tol) {
@@ -232,6 +237,16 @@ public class Matcher {
         } finally {
             matching.set(false);
         }
+    }
+
+    /** 사이트 설정의 계좌 끝4자리(없으면 빈 문자열) */
+    private String siteAccount(String siteCode) {
+        for (Config.Site s : cfg.sites) {
+            if (siteCode.equals(s.code) && s.account != null && !s.account.isBlank()) {
+                return s.account.replaceAll("[^0-9]", "");
+            }
+        }
+        return "";
     }
 
     private static LocalDateTime txAt(Map<String, Object> d) {

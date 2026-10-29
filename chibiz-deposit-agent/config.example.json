@@ -18,12 +18,14 @@
     {
       "code": "CHIBIZ",
       "baseUrl": "https://www.chibiz.co.kr/stage-api",
-      "key": ""
+      "key": "",
+      "account": ""
     },
     {
       "code": "SUPER",
       "baseUrl": "",
-      "key": ""
+      "key": "",
+      "account": ""
     }
   ],
   "mcp": {

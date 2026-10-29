@@ -54,6 +54,8 @@ public class Config {
         public String code;
         public String baseUrl;
         public String key;
+        /** (선택) 이 사이트 신청과 대조할 계좌 끝4자리(예 "7304"). 비우면 모든 계좌 */
+        public String account;
 
         public boolean enabled() {
             return code != null && !code.isBlank() && baseUrl != null && !baseUrl.isBlank() && key != null && !key.isBlank();

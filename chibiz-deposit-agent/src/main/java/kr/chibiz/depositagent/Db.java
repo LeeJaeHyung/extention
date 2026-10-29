@@ -99,7 +99,8 @@ public class Db {
                 long bal = toLong(r.get("balance"));
                 String memo = str(r.get("memo")).trim();
                 String txTime = str(r.get("txTime"));
-                String key = String.join("|", txDate, txTime, String.valueOf(dep), String.valueOf(wd), String.valueOf(bal), memo);
+                // 계좌 두 개 이상을 같이 수집하므로 계좌 끝4자리도 키에 넣는다(다른 계좌의 같은 거래가 겹치지 않게)
+                String key = String.join("|", str(r.get("accountMasked")), txDate, txTime, String.valueOf(dep), String.valueOf(wd), String.valueOf(bal), memo);
                 ps.setString(1, key);
                 ps.setString(2, txDate);
                 ps.setString(3, txTime.isEmpty() ? null : txTime);
