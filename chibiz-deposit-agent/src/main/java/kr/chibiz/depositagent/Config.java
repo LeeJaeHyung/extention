@@ -15,6 +15,17 @@ public class Config {
     public Db db = new Db();
     public Matching matching = new Matching();
     public List<Site> sites = new ArrayList<>();
+    public Mcp mcp = new Mcp();
+
+    /** 사무실 다른 PC 의 Claude 가 붙는 MCP 서버(읽기 전용 + 대조 1회). 토큰이 비어 있으면 켜지지 않는다. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Mcp {
+        public boolean enabled = true;
+        /** 0.0.0.0 = 사내망에서 접속 허용(윈도우 방화벽 포트 허용 필요) · 127.0.0.1 = 이 PC 만 */
+        public String bind = "0.0.0.0";
+        public int port = 18081;
+        public String token = "";
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Db {

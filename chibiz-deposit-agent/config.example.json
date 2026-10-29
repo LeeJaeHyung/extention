@@ -15,7 +15,21 @@
     "maxCallbackTries": 50
   },
   "sites": [
-    { "code": "CHIBIZ", "baseUrl": "https://www.chibiz.co.kr/stage-api", "key": "" },
-    { "code": "SUPER", "baseUrl": "", "key": "" }
-  ]
+    {
+      "code": "CHIBIZ",
+      "baseUrl": "https://www.chibiz.co.kr/stage-api",
+      "key": ""
+    },
+    {
+      "code": "SUPER",
+      "baseUrl": "",
+      "key": ""
+    }
+  ],
+  "mcp": {
+    "enabled": true,
+    "bind": "0.0.0.0",
+    "port": 18081,
+    "token": "여기에-긴-임의-문자열"
+  }
 }

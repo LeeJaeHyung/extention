@@ -47,3 +47,13 @@ chibiz-deposit-agent\build.bat     (에이전트가 바뀐 경우)
          ─ 10분(+새 입금 직후): 미승인 입금 × 대기 신청 전체 비교(이름 정규화 완전 일치 · 금액 ±오차 · 입금 ≥ 신청−3일)
          ─ 콜백 POST /deposit/claims/agent/{id}/matched (200/409 끝 · 그 외 재시도)
 ```
+
+## MCP — 다른 PC 의 Claude 로 입금·승인 내역 조사
+
+에이전트는 MCP 서버(Streamable HTTP, 읽기 전용 + 대조 1회)를 같이 띄웁니다. 사무실 다른 PC 의 Claude Code 에서:
+```
+claude mcp add --transport http chibiz-deposit http://<수집PC-IP>:18081/mcp --header "Authorization: Bearer <config.json 의 mcp.token>"
+```
+- 수집 PC 윈도우 방화벽에서 TCP 18081 인바운드 허용(사내망만). 토큰은 `config.json` 의 `mcp.token`(길고 임의로). 비우면 MCP 가 켜지지 않음.
+- 도구: `summary` · `list_deposits`(기간·입금자명·금액·승인 여부) · `list_runs`(실패만) · `list_claims`(상태·사이트) · `list_matches` · `find_candidates`(신청이 왜 안 맞았는지 후보·탈락 사유) · `match_now`
+- 예: "어제 들어온 미매칭 입금 보여줘", "CHIBIZ 신청 123 이 왜 안 맞았는지 봐줘", "수집이 언제부터 실패했어?"

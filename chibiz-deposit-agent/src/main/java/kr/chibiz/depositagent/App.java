@@ -56,6 +56,8 @@ public class App extends Application {
     private final Label statusDb = chip("DB 연결 중");
     private final Label statusHttp = chip("HTTP 대기");
     private final Label statusSites = chip("대조 꺼짐");
+    private final Label statusMcp = chip("MCP 꺼짐");
+    private McpServer mcp;
     private final Label statTodayCount = stat("0건");
     private final Label statTodayAmount = stat("0원");
     private final Label statLastRun = stat("-");
@@ -130,6 +132,19 @@ public class App extends Application {
         }
         matcher.start();
         Platform.runLater(() -> set(statusSites, matcher.enabled() ? "대조 켜짐 " + matcher.sites().stream().map(s -> s.code).toList() : "대조 꺼짐(사이트 키 없음)", matcher.enabled() ? "chip-ok" : "chip-muted"));
+        mcp = new McpServer(cfg, db, matcher, api);
+        if (mcp.enabled()) {
+            try {
+                mcp.start();
+                Platform.runLater(() -> set(statusMcp, "MCP :" + cfg.mcp.port + "/mcp", "chip-ok"));
+            } catch (Exception e) {
+                AgentLog.warn("MCP 시작 실패(포트 " + cfg.mcp.port + "): " + e.getMessage());
+                Platform.runLater(() -> set(statusMcp, "MCP 시작 실패", "chip-bad"));
+            }
+        } else {
+            AgentLog.info("MCP 꺼짐(config.mcp.token 비어 있음)");
+            Platform.runLater(() -> set(statusMcp, "MCP 꺼짐(토큰 없음)", "chip-muted"));
+        }
         ui.scheduleWithFixedDelay(this::refresh, 1, 30, TimeUnit.SECONDS);
     }
 
@@ -184,7 +199,7 @@ public class App extends Application {
     // ── 화면 조각 ──
 
     private HBox utilityBar() {
-        HBox bar = new HBox(8, statusDb, statusHttp, statusSites);
+        HBox bar = new HBox(8, statusDb, statusHttp, statusSites, statusMcp);
         bar.getStyleClass().add("utility-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
         return bar;
@@ -334,6 +349,9 @@ public class App extends Application {
     public void stop() {
         if (api != null) {
             api.stop();
+        }
+        if (mcp != null) {
+            mcp.stop();
         }
         AgentLog.info("입금 에이전트 종료 " + LocalDateTime.now().withNano(0));
         Platform.exit();
