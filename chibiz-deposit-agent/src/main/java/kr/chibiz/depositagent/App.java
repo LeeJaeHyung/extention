@@ -111,6 +111,16 @@ public class App extends Application {
 
     private void boot() {
         try {
+            bootInner();
+        } catch (Throwable t) {
+            // NoClassDefFoundError 같은 Error 도 화면·로그에 남긴다(설치형 런타임에 모듈이 빠진 경우 등)
+            AgentLog.warn("시작 실패: " + t);
+            Platform.runLater(() -> set(statusHttp, "시작 실패 — 로그 탭 확인", "chip-bad"));
+        }
+    }
+
+    private void bootInner() {
+        try {
             cfg = Config.load();
         } catch (Exception e) {
             AgentLog.warn("config.json 읽기 실패: " + e.getMessage());
