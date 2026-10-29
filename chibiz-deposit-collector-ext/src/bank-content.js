@@ -306,7 +306,8 @@
     running = true
     lastError = ''
     render()
-    runOnce(!resultTable()).then(scheduleNext)
+    // [실행] 은 항상 «어제~오늘 · 입금내역 · 60건» 으로 다시 조회한 결과를 읽는다(화면에 남은 표가 다른 조건일 수 있으므로)
+    runOnce(true).then(scheduleNext)
   }
 
   function stop(reason) {
@@ -357,6 +358,11 @@
   function init() {
     if (!/\/flex\/quick\/quickService\.do/.test(location.pathname)) return
     render()
+    // 패널이 뜨면 조회 조건을 미리 «어제~오늘 · 입금내역 · 60건 · 최근순» 으로 맞춰 둔다(관리자는 계좌 정보만 넣고 [조회]).
+    // 페이지 스크립트가 늦게 기본값을 덮어쓸 수 있어 조금 뒤 한 번 더 맞춘다.
+    const preset = () => { try { if (form()) setConditions() } catch (e) { /* 폼이 아직 없으면 무시 */ } render() }
+    setTimeout(preset, 800)
+    setTimeout(preset, 3000)
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init)
