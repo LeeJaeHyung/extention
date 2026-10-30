@@ -221,7 +221,7 @@ const handlers = {
       // 🆕 서버 작업으로 연 탭이면 그 작업 — 로그인 안 됨 → SESSION_EXPIRED · 안 그려짐 → ERROR 보고(티켓 §5 «보고 후 멈춤»)
       const mine = Object.values(store).find((j) => isServerJob(j) && j.openedTabId === sender.tab.id && !(j.report && j.report.final))
       if (mine) {
-        await finishServerInPlace(store, mine, { kind: 'PEEK', code: msg.code === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'RENDER_TIMEOUT' }, now)
+        await finishServerInPlace(store, mine, { kind: 'PEEK', code: msg.code === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : msg.code === 'ALREADY_PAID' ? 'ALREADY_PAID' : 'RENDER_TIMEOUT' }, now)
         await saveJobs(store)
         kickReports()
         setBadge(sender.tab.id, 'STOP')

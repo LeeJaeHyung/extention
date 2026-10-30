@@ -28,6 +28,7 @@
     PAY_CHANNEL_MISMATCH: '결제 버튼이 월드페이(kjpayV2)가 아닌 수단(조합결제·외상·알리페이 등)으로 잡혀 있습니다 — 누르지 않습니다.',
     OPERATE_ZONE_UNKNOWN: '결제 버튼이 어느 수단으로 잡혀 있는지 읽지 못했습니다 — 자동 결제를 하지 않습니다.',
     CURRENCY_UNKNOWN: '결제 통화 탭을 찾지 못했습니다 — 자동 결제를 하지 않습니다.',
+    ALREADY_PAID: '이 주문은 이미 결제되어 있습니다(사람이 먼저 결제) — 아무것도 하지 않습니다.',
     CURRENCY_SELECT_FAILED: '결제 통화를 人民币(CNY)로 바꾸지 못했습니다 — 직접 확인하세요.',
     AMOUNT_UNKNOWN: '결제 페이지의 주문 총액(订单总金额)을 읽지 못했거나 화면 안에서 값이 서로 다릅니다 — 자동 결제를 하지 않습니다.',
     AMOUNT_MISMATCH: '주문 총액이 관리자 웹의 1688 금액과 다릅니다(금액 바뀜) — 자동 결제를 하지 않습니다. 관리자 웹에서 「1688 동기화」로 확인하세요.',
@@ -326,6 +327,8 @@
     const t = tried || {}
     const W = targetChannelOf(job)
     if (!snapshot) return { action: 'WAIT' }
+    // 🆕 0.7.1 사람이 먼저 결제한 주문(실측 2026-10-29): 결제창 대신 «이미 결제» 안내가 뜨면 로그인 풀림이 아니라 ALREADY_PAID
+    if (snapshot.alreadyPaid) return { action: 'STOP', code: 'ALREADY_PAID' }
     if (snapshot.sessionExpired) return { action: 'STOP', code: 'SESSION_EXPIRED' }
     if (!snapshot.rendered) return { action: 'WAIT' }
     // 🆕 0.5.4 실측(2026-10-23 · 기본 선택이 先采后付(외상)인 묶음 결제 페이지): 서버 모델의 결제 수단 목록이 비어 있음 → 모델은 «모름» 으로 보고
@@ -605,7 +608,9 @@
         return out
       }
       case 'PEEK':
-        return ev.code === 'SESSION_EXPIRED' ? r(OUTCOME.SESSION_EXPIRED, 'SESSION_EXPIRED') : r(OUTCOME.ERROR, ev.code || 'RENDER_TIMEOUT')
+        return ev.code === 'SESSION_EXPIRED' ? r(OUTCOME.SESSION_EXPIRED, 'SESSION_EXPIRED')
+          : ev.code === 'ALREADY_PAID' ? r(OUTCOME.BLOCKED, 'ALREADY_PAID') // 🆕 0.7.1 사람이 먼저 결제 — 오류 아님
+          : r(OUTCOME.ERROR, ev.code || 'RENDER_TIMEOUT')
       case 'PARTIAL':
         return r(OUTCOME.BLOCKED, 'ORDER_MISMATCH')
       case 'NO_RESULT':

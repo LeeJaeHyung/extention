@@ -207,6 +207,7 @@
       pageKind: Core.pageKindOf(location.href),
       sessionExpired: text.includes(C.TEXT.sessionExpired),
       loginPrompt: text.includes(C.TEXT.loginPrompt),
+      alreadyPaid: (C.TEXT.alreadyPaid || []).some((t) => text.includes(t)),
       rendered: channels.length > 0 || btn.present,
       channels,
       model: readServerModel(),

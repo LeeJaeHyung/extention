@@ -190,8 +190,9 @@
     }, C.RENDER_TIMEOUT_MS)
     if (!snap) {
       const s = Page.readSnapshot()
-      return peekAndWarn(s.loginPrompt ? 'SESSION_EXPIRED' : 'RENDER_TIMEOUT', s)
+      return peekAndWarn(s.alreadyPaid ? 'ALREADY_PAID' : s.loginPrompt ? 'SESSION_EXPIRED' : 'RENDER_TIMEOUT', s)
     }
+    if (snap.alreadyPaid) return peekAndWarn('ALREADY_PAID', snap)
     if (snap.sessionExpired) return peekAndWarn('SESSION_EXPIRED', snap)
 
     // 서버 모델 스크립트·주문번호가 그려질 시간을 조금 줌
