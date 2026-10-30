@@ -58,6 +58,13 @@ public class Db {
             if (!hasColumn(conn, "bank_deposit", "approved")) {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN approved TINYINT NOT NULL DEFAULT 0, ADD COLUMN approved_claim_id BIGINT NULL, ADD COLUMN approved_at DATETIME NULL, ADD KEY idx_approved (approved, tx_date)");
             }
+            // 0.2.2: 신청마다 대조할 계좌(끝4자리)
+            if (!hasColumn(conn, "deposit_claim", "account")) {
+                st.execute("ALTER TABLE deposit_claim ADD COLUMN account VARCHAR(8) NULL COMMENT '이 계좌(끝4자리) 입금만 대조' AFTER ref_id");
+            }
+            if (!hasColumn(conn, "deposit_claim", "amounts")) {
+                st.execute("ALTER TABLE deposit_claim ADD COLUMN amounts VARCHAR(600) NULL COMMENT '맞다고 볼 금액 목록(쉼표)' AFTER account");
+            }
         }
     }
 
@@ -149,10 +156,10 @@ public class Db {
     // ── 신청 큐 ──
 
     public void upsertClaim(String site, String claimId, String memberId, String memberName, String names, long amount, double tol, String type, String refId,
-                            LocalDateTime requestedAt, LocalDateTime expiresAt) throws SQLException {
-        String sql = "INSERT INTO deposit_claim (site_code, claim_id, member_id, member_name, depositor_names, amount, tolerance_pct, claim_type, ref_id, requested_at, expires_at, status)"
-                + " VALUES (?,?,?,?,?,?,?,?,?,?,?,'PENDING')"
-                + " ON DUPLICATE KEY UPDATE depositor_names = VALUES(depositor_names), amount = VALUES(amount), tolerance_pct = VALUES(tolerance_pct), expires_at = VALUES(expires_at),"
+                            String account, String amounts, LocalDateTime requestedAt, LocalDateTime expiresAt) throws SQLException {
+        String sql = "INSERT INTO deposit_claim (site_code, claim_id, member_id, member_name, depositor_names, amount, tolerance_pct, claim_type, ref_id, account, amounts, requested_at, expires_at, status)"
+                + " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')"
+                + " ON DUPLICATE KEY UPDATE depositor_names = VALUES(depositor_names), amount = VALUES(amount), tolerance_pct = VALUES(tolerance_pct), account = VALUES(account), amounts = VALUES(amounts), expires_at = VALUES(expires_at),"
                 + " status = IF(status = 'CANCELLED', 'PENDING', status)";
         try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, site);
@@ -164,8 +171,10 @@ public class Db {
             ps.setDouble(7, tol);
             ps.setString(8, type);
             ps.setString(9, refId);
-            ps.setTimestamp(10, Timestamp.valueOf(requestedAt));
-            ps.setTimestamp(11, Timestamp.valueOf(expiresAt));
+            ps.setString(10, account == null || account.isBlank() ? null : account.replaceAll("[^0-9]", ""));
+            ps.setString(11, amounts == null || amounts.isBlank() ? null : left(amounts, 600));
+            ps.setTimestamp(12, Timestamp.valueOf(requestedAt));
+            ps.setTimestamp(13, Timestamp.valueOf(expiresAt));
             ps.executeUpdate();
         }
     }

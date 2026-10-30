@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS deposit_claim (
   tolerance_pct    DECIMAL(5,2) NOT NULL DEFAULT 0,
   claim_type       VARCHAR(20)  NULL     COMMENT 'KRW_FEE · KRW_DEPOSIT · USD_FEE',
   ref_id           VARCHAR(80)  NULL,
+  account          VARCHAR(8)   NULL     COMMENT '이 계좌(끝4자리) 입금만 대조 — KRW 인보이스 7304 · USD 인보이스 8338',
+  amounts          VARCHAR(600) NULL     COMMENT '맞다고 볼 금액 목록(쉼표) — 있으면 이 중 하나와 정확히 같아야 함',
   requested_at     DATETIME     NOT NULL,
   expires_at       DATETIME     NOT NULL,
   status           VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING MATCHED CANCELLED',

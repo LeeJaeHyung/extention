@@ -309,11 +309,12 @@ public class McpServer {
         double tolPct = c.get("tolerance_pct") instanceof Number n ? n.doubleValue() : 0;
         long tol = Math.round(amount * tolPct / 100.0);
         String requestedAt = Db.str(c.get("requested_at"));
-        List<Map<String, Object>> deps = db.query("SELECT id, tx_date, tx_time, memo, deposit_amount, approved, approved_claim_id FROM bank_deposit WHERE tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date DESC, tx_time DESC", cfg.matching.lookbackDays + 20);
+        String wantAcct = Db.str(c.get("account")).replaceAll("[^0-9]", "");
+        List<Map<String, Object>> deps = db.query("SELECT id, tx_date, tx_time, memo, deposit_amount, account_masked, approved, approved_claim_id FROM bank_deposit WHERE tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date DESC, tx_time DESC", cfg.matching.lookbackDays + 20);
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> d : deps) {
-            boolean nameOk = names.contains(Matcher.normName(Db.str(d.get("memo"))));
-            boolean amountOk = Math.abs(Db.toLong(d.get("deposit_amount")) - amount) <= tol;
+            boolean nameOk = Matcher.nameMatches(names, Matcher.normName(Db.str(d.get("memo"))));
+            boolean amountOk = Matcher.amountMatches(c, Db.toLong(d.get("deposit_amount")));
             if (!nameOk && !amountOk) {
                 continue;
             }
@@ -321,8 +322,11 @@ public class McpServer {
             if (!nameOk) {
                 why.add("입금자명 다름(정규화 '" + Matcher.normName(Db.str(d.get("memo"))) + "' ∉ " + names + ")");
             }
+            if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
+                why.add("다른 계좌(" + Db.str(d.get("account_masked")) + " · 이 신청은 " + wantAcct + " 만)");
+            }
             if (!amountOk) {
-                why.add("금액 차이 " + (Db.toLong(d.get("deposit_amount")) - amount) + "원 (허용 ±" + tol + ")");
+                why.add("금액 다름 " + Db.toLong(d.get("deposit_amount")) + "원 (맞는 금액: " + (Db.str(c.get("amounts")).isBlank() ? amount + " ±" + tol : Db.str(c.get("amounts"))) + ")");
             }
             String txAt = Db.str(d.get("tx_date")) + " " + Db.str(d.get("tx_time"));
             String earliest = requestedAt.isEmpty() ? "" : java.time.LocalDateTime.parse(requestedAt.replace(' ', 'T')).minusDays(cfg.matching.beforeRequestDays).toString().replace('T', ' ');

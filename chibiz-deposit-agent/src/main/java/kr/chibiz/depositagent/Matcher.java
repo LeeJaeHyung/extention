@@ -198,7 +198,7 @@ public class Matcher {
                 }
                 db.upsertClaim(site.code, claimId, c.path("memberId").asText(null), c.path("memberName").asText(null), String.join(",", names),
                         c.path("amount").asLong(), c.path("tolerancePct").asDouble(0), c.path("claimType").asText(null), c.path("refId").asText(null),
-                        parse(c.path("requestedAt").asText()), parse(c.path("expiresAt").asText()));
+                        c.path("account").asText(null), amountsCsv(c.path("amounts")), parse(c.path("requestedAt").asText()), parse(c.path("expiresAt").asText()));
             }
             for (String id : db.pendingClaimIds(site.code)) {
                 if (!seen.contains(id)) {
@@ -220,6 +220,41 @@ public class Matcher {
     }
 
     // ── 대조 ──
+
+    /** 사이트가 준 금액 목록(JSON 배열) → "a,b,c" (없으면 null) */
+    static String amountsCsv(JsonNode arr) {
+        if (arr == null || !arr.isArray() || arr.isEmpty()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (JsonNode n : arr) {
+            if (sb.length() > 0) {
+                sb.append(',');
+            }
+            sb.append(n.asLong());
+        }
+        return sb.toString();
+    }
+
+    /** 신청이 맞다고 보는 금액들: amounts 목록이 있으면 그것(정확히 일치), 없으면 amount ± 오차 */
+    static boolean amountMatches(Map<String, Object> claim, long depositAmount) {
+        String list = Db.str(claim.get("amounts"));
+        if (!list.isBlank()) {
+            for (String p : list.split(",")) {
+                try {
+                    if (Long.parseLong(p.trim()) == depositAmount) {
+                        return true;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // 잘못된 항목은 건너뛴다
+                }
+            }
+            return false;
+        }
+        long amount = Db.toLong(claim.get("amount"));
+        long tol = Math.round(amount * toDouble(claim.get("tolerance_pct")) / 100.0);
+        return Math.abs(depositAmount - amount) <= tol;
+    }
 
     /** 이름 정규화: 공백·법인 표기·특수문자 제거, 소문자 */
     static String normName(String s) {
@@ -275,10 +310,10 @@ public class Matcher {
                         names.add(nn);
                     }
                 }
-                long amount = Db.toLong(c.get("amount"));
-                long tol = Math.round(amount * toDouble(c.get("tolerance_pct")) / 100.0);
                 LocalDateTime earliest = parse(Db.str(c.get("requested_at")).replace(' ', 'T')).minusDays(cfg.matching.beforeRequestDays);
-                String wantAcct = siteAccount(Db.str(c.get("site_code")));
+                // 신청에 계좌가 있으면 그 계좌만(KRW 인보이스 7304 · USD 인보이스 8338), 없으면 사이트 설정 계좌
+                String claimAcct = Db.str(c.get("account")).replaceAll("[^0-9]", "");
+                String wantAcct = claimAcct.isEmpty() ? siteAccount(Db.str(c.get("site_code"))) : claimAcct;
                 Map<String, Object> hit = null;
                 for (Map<String, Object> d : deps) {
                     if (used.contains(d.get("id"))) {
@@ -288,7 +323,7 @@ public class Matcher {
                     if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
                         continue;
                     }
-                    if (Math.abs(Db.toLong(d.get("deposit_amount")) - amount) > tol) {
+                    if (!amountMatches(c, Db.toLong(d.get("deposit_amount")))) {
                         continue;
                     }
                     if (!nameMatches(names, normName(Db.str(d.get("memo"))))) {
