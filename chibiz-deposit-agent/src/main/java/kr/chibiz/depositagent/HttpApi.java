@@ -100,6 +100,12 @@ public class HttpApi {
                 db.saveRun(parseIso(Db.str(body.get("at"))), ok, (int) Db.toLong(body.get("rowsRead")), (int) Db.toLong(body.get("inserted")), Db.str(body.get("error")), Db.str(body.get("extVersion")));
                 if (!ok) {
                     AgentLog.warn("수집 실패 보고: " + Db.str(body.get("error")));
+                    List<Map<String, Object>> recent = db.query("SELECT ok FROM collect_run ORDER BY id DESC LIMIT ?", cfg.matching.alertAfterFails);
+                    boolean allFail = recent.size() >= cfg.matching.alertAfterFails && recent.stream().allMatch(r -> Db.toLong(r.get("ok")) == 0);
+                    if (allFail) {
+                        matcher.reportSystemError("COLLECT_FAIL", "입금 수집 연속 실패: " + Db.left(Db.str(body.get("error")), 80), "빠른조회 탭", cfg.matching.alertAfterFails,
+                                "수집 PC 크롬에서 빠른조회에 계좌 정보를 다시 넣고 조회 후 [실행]");
+                    }
                 }
                 onDeposits.run();
                 send(ex, 200, Map.of("ok", true));

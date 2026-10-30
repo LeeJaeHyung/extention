@@ -72,6 +72,65 @@ public class Matcher {
         exec.scheduleWithFixedDelay(() -> safeMatch("schedule"), 60, Math.max(1, cfg.matching.matchMin) * 60L, TimeUnit.SECONDS);
     }
 
+    /**
+     * 시스템 오류 보고 → 각 사이트 POST /deposit/claims/agent/alert (서버가 메일·알림톡 ERROR_SYSTEM 으로 전달).
+     * 같은 code 는 30분에 한 번만(서버에도 억제가 있지만 네트워크 낭비를 줄임).
+     */
+    private final java.util.Map<String, Long> lastAlertAt = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public void reportSystemError(String code, String message, String target, int count, String action) {
+        long now = System.currentTimeMillis();
+        Long last = lastAlertAt.get(code);
+        if (last != null && now - last < 30L * 60 * 1000) {
+            return;
+        }
+        lastAlertAt.put(code, now);
+        List<Config.Site> sites = sites();
+        if (sites.isEmpty()) {
+            AgentLog.warn("시스템 오류 보고 못 함(사이트 키 없음): " + code + " " + message);
+            return;
+        }
+        exec.execute(() -> {
+            for (Config.Site site : sites) {
+                try {
+                    java.util.Map<String, Object> body = new LinkedHashMap<>();
+                    body.put("source", "입금 수집");
+                    body.put("code", code);
+                    body.put("message", message);
+                    body.put("target", target);
+                    body.put("count", count);
+                    body.put("action", action);
+                    SiteClient.Reply r = client.post(site, "/deposit/claims/agent/alert", body);
+                    AgentLog.info("시스템 오류 보고 " + site.code + " " + code + " → " + r.status());
+                } catch (Exception e) {
+                    AgentLog.warn("시스템 오류 보고 실패 " + site.code + " " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    /** 5분마다: 마지막 수집 성공 뒤 alertNoRunMinutes 가 지났는데 실행 기록이 없으면(탭 닫힘·PC 절전) 보고 */
+    void watchdog() {
+        try {
+            List<Map<String, Object>> st = db.query("SELECT MAX(run_at) last_run, MAX(CASE WHEN ok=1 THEN run_at END) last_ok FROM collect_run");
+            if (st.isEmpty() || st.get(0).get("last_run") == null) {
+                return;
+            }
+            LocalDateTime lastRun = parse(Db.str(st.get(0).get("last_run")).replace(' ', 'T'));
+            long idleMin = java.time.Duration.between(lastRun, LocalDateTime.now()).toMinutes();
+            if (idleMin >= cfg.matching.alertNoRunMinutes) {
+                reportSystemError("COLLECT_STOPPED", "입금 수집이 " + idleMin + "분째 멈춤(실행 기록 없음 — 탭 닫힘·PC 절전·크롬 종료)",
+                        "마지막 실행 " + Db.str(st.get(0).get("last_run")), 1, "수집 PC 에서 빠른조회 탭을 열고 계좌 정보 입력 후 [실행]");
+            }
+        } catch (Exception e) {
+            AgentLog.warn("감시 오류 " + e.getMessage());
+        }
+    }
+
+    public void startWatchdog() {
+        exec.scheduleWithFixedDelay(this::watchdog, 5, 5, TimeUnit.MINUTES);
+    }
+
     /** 새 입금이 들어왔을 때 바로 한 번 */
     public void matchSoon() {
         if (enabled()) {

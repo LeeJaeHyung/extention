@@ -67,6 +67,10 @@ public class Config {
         /** 신청보다 며칠 전 입금까지 허용 */
         public int beforeRequestDays = 3;
         public int maxCallbackTries = 50;
+        /** 수집 실패가 연속 이만큼이면 사이트로 시스템 오류 보고(메일·알림톡) */
+        public int alertAfterFails = 3;
+        /** 마지막 수집 성공 뒤 이 분이 지나도록 아무 실행이 없으면(탭 닫힘·절전) 보고 */
+        public int alertNoRunMinutes = 45;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

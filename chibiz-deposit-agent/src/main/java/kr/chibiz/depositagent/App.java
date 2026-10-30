@@ -149,6 +149,7 @@ public class App extends Application {
             return;
         }
         matcher.start();
+        matcher.startWatchdog();
         Platform.runLater(() -> set(statusSites, matcher.enabled() ? "대조 켜짐 " + matcher.sites().stream().map(s -> s.code).toList() : "대조 꺼짐(사이트 키 없음)", matcher.enabled() ? "chip-ok" : "chip-muted"));
         mcp = new McpServer(cfg, db, matcher, api);
         if (mcp.enabled()) {
