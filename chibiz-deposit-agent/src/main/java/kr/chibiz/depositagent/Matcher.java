@@ -231,6 +231,27 @@ public class Matcher {
                 .replaceAll("[\\s\\-_.,·()\\[\\]{}'\"`~!@#$%^&*+=|\\\\/:;<>?]", "");
     }
 
+    /**
+     * 정규화한 은행 입금자명이 후보 중 하나와 맞는가. 금액은 따로 원 단위까지 맞춰 보므로 이름은 아래 셋 중 하나면 된다.
+     * - 같음: «노매드프로젝트» = 노매드프로젝트
+     * - 은행 이름이 후보를 품음(후보 2자 이상): «이태호(포커스밸류)» ⊃ 포커스밸류 · «다사가조은정» ⊃ 다사가
+     * - 은행 이름이 잘림(후보가 은행 이름으로 시작 · 2자 이상): «주식회사 온디» → 온디 ⊂ 온디즈(주식회사온디즈)
+     */
+    static boolean nameMatches(List<String> names, String bank) {
+        if (bank == null || bank.isEmpty()) {
+            return false;
+        }
+        for (String c : names) {
+            if (c.isEmpty()) {
+                continue;
+            }
+            if (bank.equals(c) || (c.length() >= 2 && bank.contains(c)) || (bank.length() >= 2 && c.startsWith(bank))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void runMatch(String reason) throws Exception {
         if (!matching.compareAndSet(false, true)) {
             return;
@@ -270,7 +291,7 @@ public class Matcher {
                     if (Math.abs(Db.toLong(d.get("deposit_amount")) - amount) > tol) {
                         continue;
                     }
-                    if (!names.contains(normName(Db.str(d.get("memo"))))) {
+                    if (!nameMatches(names, normName(Db.str(d.get("memo"))))) {
                         continue;
                     }
                     if (txAt(d).isBefore(earliest)) {

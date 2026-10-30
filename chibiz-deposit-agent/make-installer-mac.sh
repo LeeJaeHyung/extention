@@ -6,8 +6,9 @@
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"; JMODS="$1"; CFG="${2:-$HERE/config.example.json}"
 [ -d "$JMODS" ] || { echo "jmods 폴더를 주세요 (예: jdk-21.0.13.0.2+1/jmods)"; exit 1; }
-B="$HERE/target/winbuild"; rm -rf "$B"; mkdir -p "$B/app"
+# mvn clean 이 target 을 지우므로 빌드 뒤에 winbuild 폴더를 만든다
 ( cd "$HERE" && mvn -q clean -DskipTests package )
+B="$HERE/target/winbuild"; rm -rf "$B"; mkdir -p "$B/app"
 cp "$HERE/target/chibiz-deposit-agent.jar" "$B/app/"; cp "$HERE/config.example.json" "$B/"; cp "$CFG" "$B/config.json"
 # 🔴 jdk.httpserver(로컬 HTTP·MCP 서버) 빠지면 DB 뒤에서 조용히 죽는다(2026-10-29 실측)
 jlink --module-path "$JMODS" --add-modules java.base,java.desktop,java.sql,java.naming,java.net.http,java.logging,java.management,java.xml,java.scripting,java.prefs,java.datatransfer,java.security.jgss,java.security.sasl,jdk.unsupported,jdk.crypto.ec,jdk.localedata,jdk.zipfs,jdk.jsobject,jdk.charsets,jdk.net,jdk.httpserver --strip-debug --no-header-files --no-man-pages --compress zip-6 --output "$B/runtime"

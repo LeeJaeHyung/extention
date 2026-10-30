@@ -5,7 +5,7 @@
 
     <groupId>kr.chibiz</groupId>
     <artifactId>chibiz-deposit-agent</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <packaging>jar</packaging>
     <name>차이비즈 입금 에이전트 (JavaFX)</name>
     <description>하나은행 빠른조회 입금 내역을 익스텐션에서 받아 로컬 MySQL 에 저장하고, 사이트 신청 큐와 대조하는 데스크톱 프로그램</description>
