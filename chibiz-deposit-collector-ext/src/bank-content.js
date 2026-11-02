@@ -204,6 +204,9 @@
     const f = form()
     setConditions()
     const before = resultTable()
+    // (0.1.13) 제출 전에 비밀번호 오류·잠금 문구가 이미 떠 있으면 제출하지 않는다 — 틀린 비밀번호를 또 보내 횟수를 쌓지 않게.
+    const pre = (bodyLines().join('\n').match(PW_ERR) || [])[0]
+    if (pre) throw new Error(pre)
     // (0.1.12) 오류 문구는 «제출 뒤 새로 나타난 글»에서만 찾는다 — 폼 라벨 «계좌비밀번호» 같은 상시 문구에 걸리지 않게.
     const beforeLines = new Set(bodyLines())
     await pageCmd('submit')
@@ -213,7 +216,7 @@
       const loading = document.querySelector('img[src*="Loading"]')
       const t = resultTable()
       const fresh = bodyLines().filter((l) => !beforeLines.has(l)).join('\n')
-      const errText = (fresh.match(/시스템 장애중|잠시후 다시|비밀번호[^\n]{0,40}(오류|일치하지|틀|확인)|횟수[^\n]{0,20}초과|잠금|잠겼|오류가 발생/) || [])[0]
+      const errText = (fresh.match(ERR) || [])[0]
       if (errText) throw new Error(errText)
       if (!loading && t && (t !== before || (before && Date.now() - lastRun > 3000))) {
         // J 지시(2026-10-29): 응답이 돌아온 뒤 5초 더 기다렸다가 표를 읽는다(화면이 다 그려진 뒤 리스트업)
@@ -224,8 +227,15 @@
     throw new Error('조회 결과를 시간 안에 받지 못함')
   }
 
+  /** 비밀번호·잠금 쪽 오류(즉시 정지) · 그 밖의 오류(실패로 세고 다음 주기) */
+  const PW_ERR = /비밀번호[^\n]{0,40}(오류|일치하지|틀|확인)|횟수[^\n]{0,20}초과|잠금|잠겼/
+  const ERR = /시스템 장애중|잠시후 다시|비밀번호[^\n]{0,40}(오류|일치하지|틀|확인)|횟수[^\n]{0,20}초과|잠금|잠겼|오류가 발생/
+
+  /** 본문 줄 — 결과 표 안의 글(입금자명 등)은 뺀다(0.1.13: 적요에 «잠금» 같은 말이 있어도 오류로 안 본다) */
   function bodyLines() {
-    return (document.body.innerText || '').split('\n').map((l) => l.trim()).filter(Boolean)
+    const t = resultTable()
+    const skip = new Set(t ? (t.innerText || '').split('\n').map((l) => l.trim()).filter(Boolean) : [])
+    return (document.body.innerText || '').split('\n').map((l) => l.trim()).filter((l) => l && !skip.has(l))
   }
 
   function sleep(ms) {
@@ -365,6 +375,7 @@
     }
     running = true
     lastError = ''
+    consecutiveFail = 0
     setStopped(null)
     try { sessionStorage.setItem(RUNNING_KEY, '1') } catch (e) { /* 무시 */ }
     render()
