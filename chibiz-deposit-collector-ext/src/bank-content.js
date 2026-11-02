@@ -37,11 +37,19 @@
     return v === '' ? null : Number(v)
   }
 
+  /**
+   * 조회 결과 머리글 «계좌번호 | 342-910023-37304» 에서 끝 4자리.
+   * 입력 폼에도 «계좌번호» 칸이 있어서(입력창이라 글자가 없음) 첫 번째 것을 집으면 빈 값이 된다 —
+   * 그래서 «계좌번호» 셀을 모두 보고 옆 칸에 계좌번호 모양(숫자 10자리 이상)이 있는 것만 쓴다. (0.1.4)
+   */
   function accountMasked() {
-    const cell = [...document.querySelectorAll('th,td')].find((e) => /^계좌번호$/.test(e.textContent.trim()))
-    const v = cell && cell.nextElementSibling ? cell.nextElementSibling.textContent.trim() : ''
-    const digits = v.replace(/[^0-9]/g, '')
-    return digits ? '****' + digits.slice(-4) : ''
+    for (const cell of document.querySelectorAll('th,td')) {
+      if (!/^계좌번호\*?$/.test(cell.textContent.trim())) continue
+      const v = cell.nextElementSibling ? cell.nextElementSibling.textContent.trim() : ''
+      const digits = v.replace(/[^0-9]/g, '')
+      if (digits.length >= 10) return '****' + digits.slice(-4)
+    }
+    return ''
   }
 
   /** 표 → 행 목록. 열 순서는 머리글 이름으로 찾는다(은행이 열을 바꿔도 이름이 같으면 동작). */
