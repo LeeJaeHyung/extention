@@ -16,10 +16,10 @@ BrandingText "chibiz"
 !define MUI_UNICON "${ICONFILE}"
 !endif
 
-VIProductVersion "0.2.3.0"
+VIProductVersion "0.2.4.0"
 VIAddVersionKey "ProductName" "차이비즈 입금 에이전트"
 VIAddVersionKey "FileDescription" "차이비즈 입금 에이전트 설치"
-VIAddVersionKey "FileVersion" "0.2.3"
+VIAddVersionKey "FileVersion" "0.2.4"
 VIAddVersionKey "CompanyName" "chibiz"
 VIAddVersionKey "LegalCopyright" "chibiz"
 
