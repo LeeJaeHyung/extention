@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS collector (
   first_seen_at  DATETIME     NOT NULL COMMENT '처음 연결([실행]) 시각',
   last_seen_at   DATETIME     NOT NULL COMMENT '마지막 연결/실행 보고 시각',
   last_run_at    DATETIME     NULL     COMMENT '마지막 실행 보고 시각',
-  runs           INT          NOT NULL DEFAULT 0
+  runs           INT          NOT NULL DEFAULT 0,
+  alerted_at     DATETIME     NULL     COMMENT '끊김 보고를 보낸 시각(다시 보고가 오면 NULL)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='수집 익스텐션 연결 상태(계좌별)';
 
 -- 사이트(CHIBIZ·SUPER) 신청 큐의 병합본. 정본은 여기(어느 입금과 붙었는지·콜백 결과를 기억).

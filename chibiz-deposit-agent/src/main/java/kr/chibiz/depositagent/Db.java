@@ -67,6 +67,10 @@ public class Db {
             if (!hasColumn(conn, "collect_run", "account_masked")) {
                 st.execute("ALTER TABLE collect_run ADD COLUMN account_masked VARCHAR(20) NULL COMMENT '이 실행이 조회한 계좌(끝 4자리)' AFTER ext_version");
             }
+            // 0.2.6: 계좌별 끊김 보고 시각
+            if (!hasColumn(conn, "collector", "alerted_at")) {
+                st.execute("ALTER TABLE collector ADD COLUMN alerted_at DATETIME NULL COMMENT '끊김 보고를 보낸 시각(다시 보고가 오면 NULL)'");
+            }
             if (!hasColumn(conn, "bank_deposit", "remit_updated")) {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN remit_updated TINYINT NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)' AFTER approved_at, ADD COLUMN remit_updated_at DATETIME NULL AFTER remit_updated");
             }
@@ -146,7 +150,7 @@ public class Db {
         }
         String sql = "INSERT INTO collector (account_masked, ext_version, first_seen_at, last_seen_at, last_run_at, runs) VALUES (?,?,?,?,?,?)"
                 + " ON DUPLICATE KEY UPDATE ext_version = VALUES(ext_version), last_seen_at = VALUES(last_seen_at),"
-                + " last_run_at = IFNULL(VALUES(last_run_at), last_run_at), runs = runs + VALUES(runs)";
+                + " last_run_at = IFNULL(VALUES(last_run_at), last_run_at), runs = runs + VALUES(runs), alerted_at = NULL";
         try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement(sql)) {
             Timestamp ts = Timestamp.valueOf(at);
             ps.setString(1, accountMasked);
@@ -157,6 +161,10 @@ public class Db {
             ps.setInt(6, isRun ? 1 : 0);
             ps.executeUpdate();
         }
+    }
+
+    public void markCollectorAlerted(String accountMasked) throws SQLException {
+        update("UPDATE collector SET alerted_at = NOW() WHERE account_masked = ?", accountMasked);
     }
 
     public void saveRun(LocalDateTime at, boolean ok, int rowsRead, int inserted, String error, String extVersion, String accountMasked) throws SQLException {

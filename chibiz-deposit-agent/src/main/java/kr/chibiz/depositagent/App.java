@@ -73,6 +73,8 @@ public class App extends Application {
     private final javafx.scene.control.ComboBox<String> accountFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체 계좌"));
     /** 입금자명(적요) 또는 계좌번호 검색 — Enter 로 적용, 비우면 전체 */
     private final javafx.scene.control.TextField searchField = new javafx.scene.control.TextField();
+    /** 승인 여부 필터: 전체 · 승인(신청과 매칭됨) · 미승인 */
+    private final javafx.scene.control.ComboBox<String> approvedFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체", "승인", "미승인"));
     private final ObservableList<Map<String, Object>> runs = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> claims = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> matches = FXCollections.observableArrayList();
@@ -106,6 +108,9 @@ public class App extends Application {
         searchField.setPromptText("입금자명 또는 계좌번호");
         searchField.setPrefWidth(220);
         searchField.setOnAction(e -> refreshSoon());
+        approvedFilter.setValue("전체");
+        approvedFilter.getStyleClass().add("account-filter");
+        approvedFilter.setOnAction(e -> refreshSoon());
         Scene scene = new Scene(root, 1180, 760);
         scene.getStylesheets().add(App.class.getResource("/app.css").toExternalForm());
         stage.setScene(scene);
@@ -204,6 +209,12 @@ public class App extends Application {
             if (!acctFilter.isEmpty()) {
                 where.append(" AND account_masked LIKE ?");
                 args.add("%" + acctFilter);
+            }
+            String ap = approvedFilter.getValue() == null ? "전체" : approvedFilter.getValue();
+            if ("승인".equals(ap)) {
+                where.append(" AND approved = 1");
+            } else if ("미승인".equals(ap)) {
+                where.append(" AND approved = 0");
             }
             if (!q.isEmpty()) {
                 where.append(" AND (memo LIKE ?");
@@ -356,9 +367,12 @@ public class App extends Application {
         Button clear = new Button("지우기");
         clear.setOnAction(e -> {
             searchField.clear();
+            approvedFilter.setValue("전체");
             refreshSoon();
         });
-        HBox bar = new HBox(8, l, accountFilter, ls, searchField, clear);
+        Label la = new Label("승인");
+        la.getStyleClass().add("stat-caption");
+        HBox bar = new HBox(8, l, accountFilter, la, approvedFilter, ls, searchField, clear);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(8, 0, 8, 0));
         VBox box = new VBox(0, bar, tv);

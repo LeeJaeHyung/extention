@@ -232,7 +232,7 @@ public class McpServer {
                 break;
             }
             case "list_runs":
-                data = db.query("SELECT run_at, ok, rows_read, inserted, error, ext_version FROM collect_run " + (a.path("only_fail").asBoolean(false) ? "WHERE ok = 0 " : "") + "ORDER BY id DESC LIMIT " + limit(a, 100));
+                data = db.query("SELECT run_at, ok, rows_read, inserted, error, ext_version, account_masked FROM collect_run " + (a.path("only_fail").asBoolean(false) ? "WHERE ok = 0 " : "") + "ORDER BY id DESC LIMIT " + limit(a, 100));
                 break;
             case "list_claims": {
                 List<Object> args = new ArrayList<>();

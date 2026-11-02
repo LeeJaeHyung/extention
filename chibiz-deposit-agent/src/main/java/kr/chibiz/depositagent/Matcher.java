@@ -109,8 +109,9 @@ public class Matcher {
         });
     }
 
-    /** 5분마다: 마지막 수집 성공 뒤 alertNoRunMinutes 가 지났는데 실행 기록이 없으면(탭 닫힘·PC 절전) 보고 */
+    /** 5분마다: 마지막 수집 성공 뒤 alertNoRunMinutes 가 지났는데 실행 기록이 없으면(탭 닫힘·PC 절전) 보고 + 계좌별 끊김 보고 */
     void watchdog() {
+        watchCollectors();
         try {
             List<Map<String, Object>> st = db.query("SELECT MAX(run_at) last_run, MAX(CASE WHEN ok=1 THEN run_at END) last_ok FROM collect_run");
             if (st.isEmpty() || st.get(0).get("last_run") == null) {
@@ -124,6 +125,34 @@ public class Matcher {
             }
         } catch (Exception e) {
             AgentLog.warn("감시 오류 " + e.getMessage());
+        }
+    }
+
+    /**
+     * 계좌별 끊김: 한 번이라도 붙었던 계좌(collector 행)가 alertNoRunMinutes 동안 보고가 없으면 그 계좌만 짚어 보고(메일·알림톡).
+     * 끊김마다 한 번만(alerted_at) — 다시 보고가 오면 upsertCollector 가 alerted_at 을 지우므로 다음 끊김 때 또 보고한다.
+     * 전체 멈춤(COLLECT_STOPPED)과 달리 다른 탭이 돌고 있어도 잡는다. 보고 코드에 끝4자리를 넣어 reportSystemError 의 30분 중복 억제가 계좌별로 걸리게 한다.
+     */
+    private void watchCollectors() {
+        try {
+            List<Map<String, Object>> rows = db.query("SELECT account_masked, last_seen_at, alerted_at FROM collector WHERE alerted_at IS NULL");
+            for (Map<String, Object> r : rows) {
+                String acct = Db.str(r.get("account_masked"));
+                LocalDateTime last = parse(Db.str(r.get("last_seen_at")).replace(' ', 'T'));
+                long idleMin = java.time.Duration.between(last, LocalDateTime.now()).toMinutes();
+                if (idleMin < cfg.matching.alertNoRunMinutes) {
+                    continue;
+                }
+                String label = cfg.accountLabel(acct);
+                db.markCollectorAlerted(acct);
+                AgentLog.warn("수집 끊김 " + label + " — " + idleMin + "분째 보고 없음(마지막 " + Db.str(r.get("last_seen_at")) + ")");
+                reportSystemError("COLLECT_DISCONNECT_" + acct.replaceAll("[^0-9]", ""),
+                        "계좌 " + label + " 수집이 " + idleMin + "분째 멈춤(탭 닫힘·세션 만료·PC 절전)",
+                        "마지막 보고 " + Db.str(r.get("last_seen_at")), 1,
+                        "수집 PC 크롬에서 " + label + " 빠른조회 탭을 열고 계좌 정보 입력 후 [실행]");
+            }
+        } catch (Exception e) {
+            AgentLog.warn("계좌별 감시 오류 " + e.getMessage());
         }
     }
 
