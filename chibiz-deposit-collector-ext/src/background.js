@@ -78,11 +78,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // 0.1.6: 익스텐션이 (툴바 메뉴의 «새로고침» 또는 chrome://extensions ↻ 로) 다시 읽히면 열린 빠른조회 탭을 새로고침한다 —
 // 옛 콘텐츠 스크립트는 끊긴 채 남으므로 탭을 다시 열어야 새 코드가 붙는다. 사용자는 탭마다 계좌 정보를 다시 넣고 [실행].
+// (0.1.7) 탭은 새로고침하지 않고 새 코드를 열린 탭에 다시 주입한다 — 입력해 둔 계좌 정보가 남고, 실행 중이던 탭은 새 인스턴스가 이어서 돈다.
+// 주입이 안 되는 탭(로딩 중 등)만 새로고침으로 물러난다.
 chrome.runtime.onInstalled.addListener(async () => {
+  let tabs = []
   try {
-    const tabs = await chrome.tabs.query({ url: 'https://www.kebhana.com/flex/quick/*' })
-    for (const t of tabs) chrome.tabs.reload(t.id)
+    tabs = await chrome.tabs.query({ url: 'https://www.kebhana.com/flex/quick/*' })
   } catch (e) {
-    // 탭 조회 실패는 무시
+    return
+  }
+  for (const t of tabs) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['src/page-bridge.js'], world: 'MAIN' })
+      await chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['src/config.js', 'src/bank-content.js'] })
+    } catch (e) {
+      try { chrome.tabs.reload(t.id) } catch (e2) { /* 무시 */ }
+    }
   }
 })

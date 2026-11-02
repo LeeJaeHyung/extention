@@ -8,6 +8,9 @@
  */
 ;(function () {
   'use strict'
+  // (0.1.7) 코드 새로고침 때 다시 주입돼도 리스너가 두 번 붙지 않게
+  if (window.__chibizBankBridge) return
+  window.__chibizBankBridge = true
   function fn() {
     const p = window.pbk
     return p && p.quickService && p.quickService.acctInquiry && typeof p.quickService.acctInquiry.submitInquiry === 'function'

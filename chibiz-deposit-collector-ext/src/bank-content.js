@@ -25,6 +25,10 @@
   let consecutiveFail = 0
   let lastConditionNote = ''
   let nextRunAt = null
+  /** (0.1.7) 새 코드가 이 탭에 다시 주입되면 옛 인스턴스는 여기가 true 가 되어 아무것도 안 한다 */
+  let dead = false
+  /** 실행 중 여부를 탭(sessionStorage)에 남겨, 코드만 다시 읽혀도(탭은 그대로) 새 인스턴스가 이어서 돌게 한다 */
+  const RUNNING_KEY = 'chibiz-bank-running'
 
   // ── 화면 읽기 ──────────────────────────────────────────────────────────────
 
@@ -161,7 +165,7 @@
   }
 
   function scheduleNext() {
-    if (!running) return
+    if (!running || dead) return
     const delay = nextDelayMs()
     nextRunAt = Date.now() + delay
     timer = setTimeout(async () => {
@@ -278,12 +282,20 @@
 
   /** 실행 1회의 결과를 에이전트 collect_run 표에 남긴다(30일 연속 수집 시험: 언제부터 실패했는지 보려고). */
   function logRun(ok, rowsRead, inserted, error) {
-    chrome.runtime.sendMessage({ type: 'BANK_RUN', ok, rowsRead, inserted, error: error || '', at: new Date().toISOString(), accountMasked: accountMasked() }).catch(() => {})
+    try {
+      chrome.runtime.sendMessage({ type: 'BANK_RUN', ok, rowsRead, inserted, error: error || '', at: new Date().toISOString(), accountMasked: accountMasked() }).catch(() => {})
+    } catch (e) {
+      // 익스텐션이 다시 읽힌 뒤의 옛 인스턴스(컨텍스트 무효) — 무시
+    }
   }
 
   /** (0.1.5) [실행] 때 «이 탭은 어느 계좌를 조회하는지»를 에이전트에 알린다 → 에이전트 화면의 «수집 연결» 줄 */
   function hello() {
-    chrome.runtime.sendMessage({ type: 'BANK_HELLO', accountMasked: accountMasked(), at: new Date().toISOString() }).catch(() => {})
+    try {
+      chrome.runtime.sendMessage({ type: 'BANK_HELLO', accountMasked: accountMasked(), at: new Date().toISOString() }).catch(() => {})
+    } catch (e) {
+      // 옛 인스턴스 — 무시
+    }
   }
 
   async function runOnce(withRequery) {
@@ -318,6 +330,7 @@
     }
     running = true
     lastError = ''
+    try { sessionStorage.setItem(RUNNING_KEY, '1') } catch (e) { /* 무시 */ }
     render()
     hello()
     // [실행] 은 항상 «어제~오늘 · 입금내역 · 60건» 으로 다시 조회한 결과를 읽는다(화면에 남은 표가 다른 조건일 수 있으므로)
@@ -330,14 +343,34 @@
     timer = null
     nextRunAt = null
     if (reason) lastError = reason
+    if (!dead) {
+      try { sessionStorage.removeItem(RUNNING_KEY) } catch (e) { /* 무시 */ }
+    }
     render()
   }
+
+  /**
+   * (0.1.7) 익스텐션이 다시 읽혀 새 코드가 이 탭에 주입되면(background onInstalled → scripting.executeScript) 새 인스턴스가 이 이벤트를 쏜다.
+   * 옛 인스턴스는 타이머를 끊고 패널을 치우고 죽는다. 탭은 새로고침하지 않으므로 입력해 둔 계좌 정보와 조회 결과가 남는다.
+   */
+  document.addEventListener('chibiz-bank-takeover', () => {
+    if (dead) return
+    dead = true
+    if (timer) clearTimeout(timer)
+    timer = null
+    running = false
+    if (panel) {
+      panel.remove()
+      panel = null
+    }
+  })
 
   // ── 패널 ───────────────────────────────────────────────────────────────────
 
   let panel = null
 
   function render() {
+    if (dead) return
     if (!panel) {
       panel = document.createElement('div')
       panel.id = STATE_KEY
@@ -371,7 +404,23 @@
 
   function init() {
     if (!/\/flex\/quick\/quickService\.do/.test(location.pathname)) return
+    // 옛 인스턴스가 있으면 물려받는다(코드 새로고침 때). 옛 패널은 옛 인스턴스가 치우지만, 혹시 남아 있으면 여기서도 치운다.
+    document.dispatchEvent(new CustomEvent('chibiz-bank-takeover'))
+    const stale = document.getElementById(STATE_KEY)
+    if (stale) stale.remove()
     render()
+    // 옛 인스턴스가 실행 중이었으면(탭 sessionStorage) 다리가 준비되는 대로 이어서 [실행]
+    let wasRunning = false
+    try { wasRunning = sessionStorage.getItem(RUNNING_KEY) === '1' } catch (e) { /* 무시 */ }
+    if (wasRunning) {
+      let tries = 0
+      const resume = () => {
+        if (canRequery()) { start(); return }
+        if (++tries < 20) setTimeout(resume, 500)
+        else { lastError = '코드 새로고침 뒤 이어서 실행하지 못함 — 조회 후 [실행]'; render() }
+      }
+      setTimeout(resume, 300)
+    }
     // 패널이 뜨면 조회 조건을 미리 «어제~오늘 · 입금내역 · 60건 · 최근순» 으로 맞춰 둔다(관리자는 계좌 정보만 넣고 [조회]).
     // 페이지 스크립트가 늦게 기본값을 덮어쓸 수 있어 조금 뒤 한 번 더 맞춘다.
     const preset = () => { try { if (form()) setConditions() } catch (e) { /* 폼이 아직 없으면 무시 */ } render() }

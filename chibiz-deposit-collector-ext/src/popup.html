@@ -15,9 +15,10 @@
 <body>
   <h1>차이비즈 입금 수집</h1>
   <div class="ver" id="ver"></div>
-  <button class="primary" id="reload">새로고침 — 바뀐 코드 적용</button>
+  <button class="primary" id="reload">새로고침 — 바뀐 코드 적용 (탭 유지)</button>
   <button id="tabs">은행 탭만 새로고침</button>
-  <div class="note">«새로고침»은 폴더의 새 코드를 다시 읽고(chrome://extensions 의 ↻ 와 같음) 열린 빠른조회 탭도 같이 새로고침합니다. 그 뒤 탭마다 계좌 정보를 다시 넣고 조회 → [실행].</div>
+  <div class="note">«새로고침»은 폴더의 새 코드를 다시 읽어 열린 빠른조회 탭에 그대로 넣습니다. 탭은 새로고침하지 않으므로 입력해 둔 계좌 정보가 남고, 실행 중이던 탭은 이어서 돕니다.
+«은행 탭만 새로고침»은 탭을 다시 불러오므로 계좌 정보를 다시 넣어야 합니다.</div>
   <script src="popup.js"></script>
 </body>
 </html>

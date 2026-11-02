@@ -15,6 +15,6 @@ document.getElementById('tabs').addEventListener('click', async () => {
 })
 
 document.getElementById('reload').addEventListener('click', () => {
-  // 폴더의 새 코드를 다시 읽는다. 다시 시작한 background 가 onInstalled 에서 빠른조회 탭을 새로고침해 새 콘텐츠 스크립트가 붙게 한다.
+  // 폴더의 새 코드를 다시 읽는다. 다시 시작한 background 가 onInstalled 에서 열린 빠른조회 탭에 새 코드를 주입한다(탭 새로고침 없음).
   chrome.runtime.reload()
 })
