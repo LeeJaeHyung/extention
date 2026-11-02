@@ -320,7 +320,7 @@ public class McpServer {
             }
             List<String> why = new ArrayList<>();
             if (!nameOk) {
-                why.add("입금자명 다름(정규화 '" + Matcher.normName(Db.str(d.get("memo"))) + "' ∉ " + names + ")");
+                why.add("입금자명 다름(공백 제거 '" + Matcher.normName(Db.str(d.get("memo"))) + "' ≠ " + names + ")");
             }
             if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
                 why.add("다른 계좌(" + Db.str(d.get("account_masked")) + " · 이 신청은 " + wantAcct + " 만)");
