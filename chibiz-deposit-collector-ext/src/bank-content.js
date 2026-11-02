@@ -29,6 +29,8 @@
   let dead = false
   /** 실행 중 여부를 탭(sessionStorage)에 남겨, 코드만 다시 읽혀도(탭은 그대로) 새 인스턴스가 이어서 돌게 한다 */
   const RUNNING_KEY = 'chibiz-bank-running'
+  /** (0.1.9) 사용자가 패널의 [중지]를 눌렀으면 자동 시작하지 않는다([실행]을 누르면 풀림) */
+  let userStopped = false
 
   // ── 화면 읽기 ──────────────────────────────────────────────────────────────
 
@@ -394,7 +396,15 @@
     const btn = document.createElement('button')
     btn.textContent = running ? '중지' : '실행'
     btn.style.cssText = 'padding:6px 14px;border:0;border-radius:6px;color:#fff;cursor:pointer;background:' + (running ? '#6b7280' : '#0d9488')
-    btn.addEventListener('click', () => (running ? stop('') : start()))
+    btn.addEventListener('click', () => {
+      if (running) {
+        userStopped = true
+        stop('')
+      } else {
+        userStopped = false
+        start()
+      }
+    })
     const once = document.createElement('button')
     once.textContent = '지금 1회'
     once.style.cssText = 'margin-left:8px;padding:6px 10px;border:1px solid #0d9488;border-radius:6px;background:#fff;color:#0d9488;cursor:pointer'
@@ -411,18 +421,12 @@
     const stale = document.getElementById(STATE_KEY)
     if (stale) stale.remove()
     render()
-    // 옛 인스턴스가 실행 중이었으면(탭 sessionStorage) 다리가 준비되는 대로 이어서 [실행]
-    let wasRunning = false
-    try { wasRunning = sessionStorage.getItem(RUNNING_KEY) === '1' } catch (e) { /* 무시 */ }
-    if (wasRunning) {
-      let tries = 0
-      const resume = () => {
-        if (canRequery()) { start(); return }
-        if (++tries < 20) setTimeout(resume, 500)
-        else { lastError = '코드 새로고침 뒤 이어서 실행하지 못함 — 조회 후 [실행]'; render() }
-      }
-      setTimeout(resume, 300)
-    }
+    // (0.1.9) 자동 시작: 관리자가 은행의 [조회]를 눌러 결과 표가 뜨면(= canRequery) 패널의 [실행]을 누르지 않아도 시작한다.
+    // 코드 새로고침 뒤 이어서 실행하는 것도 같은 길로 된다(표가 그대로 있으므로). [중지]를 누른 탭은 다시 [실행]을 누를 때까지 가만히 둔다.
+    setInterval(() => {
+      if (dead || running || userStopped) return
+      if (canRequery()) start()
+    }, 1000)
     // 패널이 뜨면 조회 조건을 미리 «어제~오늘 · 입금내역 · 60건 · 최근순» 으로 맞춰 둔다(관리자는 계좌 정보만 넣고 [조회]).
     // 페이지 스크립트가 늦게 기본값을 덮어쓸 수 있어 조금 뒤 한 번 더 맞춘다.
     const preset = () => { try { if (form()) setConditions() } catch (e) { /* 폼이 아직 없으면 무시 */ } render() }
