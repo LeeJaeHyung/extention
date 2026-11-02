@@ -37,11 +37,15 @@
   "accounts": [
     {
       "last4": "7304",
-      "label": "중판"
+      "label": "지9나우홍콩 KRW(수수료·예치금)"
+    },
+    {
+      "last4": "0004",
+      "label": "중판 KRW(USD 인보이스 수수료)"
     },
     {
       "last4": "8338",
-      "label": "G9NOW"
+      "label": "USD 송금(원화대가)"
     }
   ]
 }
