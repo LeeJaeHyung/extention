@@ -221,7 +221,9 @@
       const fresh = bodyLines().filter((l) => !beforeLines.has(l)).join('\n')
       const errText = (fresh.match(ERR) || [])[0]
       if (errText) throw new Error(errText)
-      if (!loading && t && (t !== before || (before && Date.now() - lastRun > 3000))) {
+      // (0.1.16) 표 요소가 새로 그려졌으면 응답이 온 것 — 스피너가 남아 있어도 통과(정상 조회를 실패로 세지 않게).
+      //          스피너는 «같은 표를 3초 뒤 다시 읽는» 보조 경로만 막는다(응답 없이 옛 표를 읽는 누락 방지).
+      if (t && (t !== before || (!loading && before && Date.now() - lastRun > 3000))) {
         // J 지시(2026-10-29): 응답이 돌아온 뒤 5초 더 기다렸다가 표를 읽는다(화면이 다 그려진 뒤 리스트업)
         await sleep(B.settleMs)
         return true
@@ -238,7 +240,8 @@
       const tx = (el.textContent || '').trim()
       if (!/데이터\s*처리\s*중|처리중입니다|로딩\s*중/.test(tx) || tx.length > 40) continue
       const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return true
+      const cs = getComputedStyle(el)
+      if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity || 1) > 0) return true
     }
     return false
   }
