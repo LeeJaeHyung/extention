@@ -28,6 +28,7 @@ import javafx.stage.Stage;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -68,6 +69,8 @@ public class App extends Application {
     private final ObservableList<Map<String, Object>> deposits = FXCollections.observableArrayList();
     private final HBox accountRow = new HBox(8);
     private final javafx.scene.control.ComboBox<String> accountFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체 계좌"));
+    /** 입금자명(적요) 또는 계좌번호 검색 — Enter 로 적용, 비우면 전체 */
+    private final javafx.scene.control.TextField searchField = new javafx.scene.control.TextField();
     private final ObservableList<Map<String, Object>> runs = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> claims = FXCollections.observableArrayList();
     private final ObservableList<Map<String, Object>> matches = FXCollections.observableArrayList();
@@ -96,6 +99,9 @@ public class App extends Application {
         accountFilter.setValue("전체 계좌");
         accountFilter.getStyleClass().add("account-filter");
         accountFilter.setOnAction(e -> refreshSoon());
+        searchField.setPromptText("입금자명 또는 계좌번호");
+        searchField.setPrefWidth(220);
+        searchField.setOnAction(e -> refreshSoon());
         Scene scene = new Scene(root, 1180, 760);
         scene.getStylesheets().add(App.class.getResource("/app.css").toExternalForm());
         stage.setScene(scene);
@@ -186,9 +192,26 @@ public class App extends Application {
         try {
             Map<String, Object> s = api.summary();
             String acctFilter = accountFilter.getValue() == null || "전체 계좌".equals(accountFilter.getValue()) ? "" : accountFilter.getValue().replaceAll(".*\\*{4}", "").replaceAll("[^0-9]", "");
-            List<Map<String, Object>> dep = acctFilter.isEmpty()
-                    ? db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300")
-                    : db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit WHERE account_masked LIKE ? ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300", "%" + acctFilter);
+            String q = searchField.getText() == null ? "" : searchField.getText().trim();
+            // 검색어: 입금자명(적요) 부분일치 · 숫자가 있으면 계좌번호도 — 마스킹 계좌는 하이픈을 뗀 뒤 부분일치
+            String qDigits = q.replaceAll("[^0-9]", "");
+            StringBuilder where = new StringBuilder();
+            List<Object> args = new ArrayList<>();
+            if (!acctFilter.isEmpty()) {
+                where.append(" AND account_masked LIKE ?");
+                args.add("%" + acctFilter);
+            }
+            if (!q.isEmpty()) {
+                where.append(" AND (memo LIKE ?");
+                args.add("%" + q + "%");
+                if (qDigits.length() >= 2) {
+                    where.append(" OR REPLACE(account_masked, '-', '') LIKE ?");
+                    args.add("%" + qDigits + "%");
+                }
+                where.append(")");
+            }
+            List<Map<String, Object>> dep = db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit WHERE 1=1" + where
+                    + " ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300", args.toArray());
             for (Map<String, Object> r : dep) {
                 r.put("account", cfg.accountLabel(Db.str(r.get("account_masked"))));
             }
@@ -311,7 +334,14 @@ public class App extends Application {
     private VBox withFilter(TableView<Map<String, Object>> tv) {
         Label l = new Label("계좌");
         l.getStyleClass().add("stat-caption");
-        HBox bar = new HBox(8, l, accountFilter);
+        Label ls = new Label("검색");
+        ls.getStyleClass().add("stat-caption");
+        Button clear = new Button("지우기");
+        clear.setOnAction(e -> {
+            searchField.clear();
+            refreshSoon();
+        });
+        HBox bar = new HBox(8, l, accountFilter, ls, searchField, clear);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(8, 0, 8, 0));
         VBox box = new VBox(0, bar, tv);
