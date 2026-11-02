@@ -12,7 +12,7 @@ B="$HERE/target/winbuild"; rm -rf "$B"; mkdir -p "$B/app"
 cp "$HERE/target/chibiz-deposit-agent.jar" "$B/app/"; cp "$HERE/config.example.json" "$B/"; cp "$CFG" "$B/config.json"
 # 🔴 jdk.httpserver(로컬 HTTP·MCP 서버) 빠지면 DB 뒤에서 조용히 죽는다(2026-10-29 실측)
 jlink --module-path "$JMODS" --add-modules java.base,java.desktop,java.sql,java.naming,java.net.http,java.logging,java.management,java.xml,java.scripting,java.prefs,java.datatransfer,java.security.jgss,java.security.sasl,jdk.unsupported,jdk.crypto.ec,jdk.localedata,jdk.zipfs,jdk.jsobject,jdk.charsets,jdk.net,jdk.httpserver --strip-debug --no-header-files --no-man-pages --compress zip-6 --output "$B/runtime"
-cp "$HERE/launcher.nsi" "$HERE/installer.nsi" "$B/"
+cp "$HERE/launcher.nsi" "$HERE/installer.nsi" "$HERE/icon.ico" "$B/"
 # makensis 는 UTF-8 BOM + UTF-8 로케일이 있어야 한글 스크립트를 읽는다
-cd "$B" && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 makensis -V2 launcher.nsi && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 makensis -V2 installer.nsi
+cd "$B" && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 makensis -V2 -DICONFILE=icon.ico launcher.nsi && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 makensis -V2 -DICONFILE=icon.ico installer.nsi
 ls -la "$B"/*.exe

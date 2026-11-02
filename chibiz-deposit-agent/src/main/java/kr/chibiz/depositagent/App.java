@@ -22,6 +22,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import java.text.NumberFormat;
@@ -79,6 +80,13 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("차이비즈 입금 에이전트");
+        try (java.io.InputStream in = App.class.getResourceAsStream("/icon.png")) {
+            if (in != null) {
+                stage.getIcons().add(new Image(in)); // 창·작업 표시줄 아이콘
+            }
+        } catch (Exception ignored) {
+            // 아이콘이 없어도 동작에는 지장 없음
+        }
         BorderPane root = new BorderPane();
         root.getStyleClass().add("canvas");
         root.setTop(new VBox(utilityBar(), nav()));
