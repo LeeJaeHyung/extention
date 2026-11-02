@@ -118,6 +118,8 @@
 
   async function init() {
     $('ver').textContent = 'v' + chrome.runtime.getManifest().version
+    // 0.7.2: 배포 뒤 폴더만 바꾸고 여기서 «새로고침» — chrome://extensions 를 열 필요 없음(입금 수집 익스텐션과 같음)
+    $('reloadExt').addEventListener('click', () => chrome.runtime.reload())
     const s = await getSettings()
     $('autoClick').checked = s.autoClick === true
     $('dryRun').checked = s.dryRun === true

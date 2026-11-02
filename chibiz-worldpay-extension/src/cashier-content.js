@@ -291,14 +291,14 @@
         const tc = Core.targetChannelOf(job)
         if (!safeClick(Page.channelCard(tc), 'channel', tc)) return { stage: 'STOP', code: 'CLICK_REFUSED', snap }
         await waitFor(() => selectedChannel(tc), C.SELECT_TIMEOUT_MS)
-        await sleep(C.SETTLE_MS)
+        await sleep(C.CHANNEL_SETTLE_MS || C.SETTLE_MS) // 0.7.2: 결제 수단 선택 뒤 통화 탭·금액이 다 그려지도록 더 쉰다
         continue
       }
       if (d.action === 'CLICK_CNY') {
         tried.currency++
         if (!safeClick(Page.findCnyOption(), 'currency')) return { stage: 'STOP', code: 'CLICK_REFUSED', snap }
         await waitFor(cnyActive, C.SELECT_TIMEOUT_MS)
-        await sleep(C.SETTLE_MS)
+        await sleep(C.CHANNEL_SETTLE_MS || C.SETTLE_MS)
         continue
       }
       // READY — 화면이 멈춘 뒤 한 번 더

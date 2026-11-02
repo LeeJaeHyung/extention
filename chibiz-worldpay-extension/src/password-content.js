@@ -20,6 +20,7 @@
   const C = root.ChibizWorldpayConfig
   const Core = root.ChibizWorldpayCore
   const P = C.PASSWORD_STEP
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
   const frame = {
     isTop: false,
@@ -164,6 +165,8 @@
    * 🔴 «下一步» 이 켜지지 않으면 우회하지 않고 칸을 비웁니다. 누르기는 한 번만.
    */
   async function autoFill(password) {
+    // 0.7.2: 창이 뜬 직후 바로 넣지 않고 조금 쉰다(J 2026-11-02) — 보안 입력이 준비될 시간
+    await sleep(P.beforeFillMs || 0)
     const input = passwordInput()
     if (!input) return 'NO_INPUT'
     setInputValue(input, password)
