@@ -31,6 +31,11 @@
   const RUNNING_KEY = 'chibiz-bank-running'
   /** (0.1.9) 사용자가 패널의 [중지]를 눌렀으면 자동 시작하지 않는다([실행]을 누르면 풀림) */
   let userStopped = false
+  /**
+   * (0.1.10) 실패로 자동 정지했을 때의 결과 표. 이 표가 그대로인 동안은 자동 시작하지 않는다 —
+   * 관리자가 다시 [조회]해서 표가 새로 그려지거나(= 요소가 바뀜) [실행]을 눌러야 다시 돈다. 실패-재시작이 1초마다 도는 것을 막는다.
+   */
+  let blockedTable = null
 
   // ── 화면 읽기 ──────────────────────────────────────────────────────────────
 
@@ -318,8 +323,13 @@
       consecutiveFail++
       render()
       logRun(false, 0, 0, lastError + ' (' + Math.round((Date.now() - t0) / 1000) + 's)')
+      // (0.1.10) 비밀번호 오류는 한 번이면 바로 멈춘다 — 은행의 비밀번호 오류 횟수 제한(계좌 잠김)에 걸리지 않게. 다시 [조회]할 때까지 자동 시작도 안 한다.
+      if (/비밀번호/.test(lastError)) {
+        autoStop('비밀번호 오류로 멈춤 — 계좌 정보를 다시 넣고 [조회]하세요 (반복하면 계좌가 잠깁니다)')
+        return
+      }
       // stopAfterFails 0 = 멈추지 않고 다음 주기에 다시 시도(연속 수집 시험용)
-      if (B.stopAfterFails > 0 && consecutiveFail >= B.stopAfterFails) stop('연속 ' + consecutiveFail + '회 실패 — 다시 입력하고 [실행]')
+      if (B.stopAfterFails > 0 && consecutiveFail >= B.stopAfterFails) autoStop('연속 ' + consecutiveFail + '회 실패 — 다시 입력하고 [조회]')
     }
   }
 
@@ -349,6 +359,12 @@
       try { sessionStorage.removeItem(RUNNING_KEY) } catch (e) { /* 무시 */ }
     }
     render()
+  }
+
+  /** 실패로 멈춤: 지금 결과 표를 기억해 두고, 표가 새로 그려질 때까지 자동 시작을 막는다 */
+  function autoStop(reason) {
+    blockedTable = resultTable() || document.body
+    stop(reason)
   }
 
   /**
@@ -402,6 +418,7 @@
         stop('')
       } else {
         userStopped = false
+        blockedTable = null
         start()
       }
     })
@@ -425,7 +442,11 @@
     // 코드 새로고침 뒤 이어서 실행하는 것도 같은 길로 된다(표가 그대로 있으므로). [중지]를 누른 탭은 다시 [실행]을 누를 때까지 가만히 둔다.
     setInterval(() => {
       if (dead || running || userStopped) return
-      if (canRequery()) start()
+      if (!canRequery()) return
+      // 실패로 멈춘 뒤 표가 그대로면 기다린다(관리자가 다시 [조회]하면 표 요소가 바뀐다)
+      if (blockedTable && resultTable() === blockedTable) return
+      blockedTable = null
+      start()
     }, 1000)
     // 패널이 뜨면 조회 조건을 미리 «어제~오늘 · 입금내역 · 60건 · 최근순» 으로 맞춰 둔다(관리자는 계좌 정보만 넣고 [조회]).
     // 페이지 스크립트가 늦게 기본값을 덮어쓸 수 있어 조금 뒤 한 번 더 맞춘다.
