@@ -353,7 +353,7 @@
    * (0.1.7) 익스텐션이 다시 읽혀 새 코드가 이 탭에 주입되면(background onInstalled → scripting.executeScript) 새 인스턴스가 이 이벤트를 쏜다.
    * 옛 인스턴스는 타이머를 끊고 패널을 치우고 죽는다. 탭은 새로고침하지 않으므로 입력해 둔 계좌 정보와 조회 결과가 남는다.
    */
-  document.addEventListener('chibiz-bank-takeover', () => {
+  function onTakeover() {
     if (dead) return
     dead = true
     if (timer) clearTimeout(timer)
@@ -363,7 +363,7 @@
       panel.remove()
       panel = null
     }
-  })
+  }
 
   // ── 패널 ───────────────────────────────────────────────────────────────────
 
@@ -405,7 +405,9 @@
   function init() {
     if (!/\/flex\/quick\/quickService\.do/.test(location.pathname)) return
     // 옛 인스턴스가 있으면 물려받는다(코드 새로고침 때). 옛 패널은 옛 인스턴스가 치우지만, 혹시 남아 있으면 여기서도 치운다.
+    // 이벤트는 동기라서 리스너를 먼저 달면 자기 이벤트에 자기가 죽는다(0.1.7 첫 판 버그) — 쏜 뒤에 단다.
     document.dispatchEvent(new CustomEvent('chibiz-bank-takeover'))
+    document.addEventListener('chibiz-bank-takeover', onTakeover)
     const stale = document.getElementById(STATE_KEY)
     if (stale) stale.remove()
     render()
