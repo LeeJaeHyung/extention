@@ -211,9 +211,12 @@
     const beforeLines = new Set(bodyLines())
     await pageCmd('submit')
     const until = Date.now() + B.requeryTimeoutMs
+    let sawLoading = false
     while (Date.now() < until) {
       await sleep(500)
-      const loading = document.querySelector('img[src*="Loading"]')
+      // (0.1.15) 로딩 표시: Loading 이미지 또는 보이는 «데이터 처리중» 글자(익텐PC 관찰 2026-11-02: 조회 사이에도 스피너가 남는 경우)
+      const loading = !!document.querySelector('img[src*="Loading"]') || spinnerVisible()
+      if (loading) sawLoading = true
       const t = resultTable()
       const fresh = bodyLines().filter((l) => !beforeLines.has(l)).join('\n')
       const errText = (fresh.match(ERR) || [])[0]
@@ -224,7 +227,20 @@
         return true
       }
     }
-    throw new Error('조회 결과를 시간 안에 받지 못함')
+    // 시한까지 스피너가 안 사라지면 옛 표를 다시 읽지 않고 실패로 남긴다(조용한 누락 방지)
+    throw new Error(sawLoading && spinnerVisible() ? '조회 응답 없음 — «데이터 처리중» 이 사라지지 않음' : '조회 결과를 시간 안에 받지 못함')
+  }
+
+  /** 보이는 «데이터 처리중…» 류 스피너(결과 표 바깥) */
+  function spinnerVisible() {
+    for (const el of document.querySelectorAll('div,span,p,td')) {
+      if (el.children.length > 2) continue
+      const tx = (el.textContent || '').trim()
+      if (!/데이터\s*처리\s*중|처리중입니다|로딩\s*중/.test(tx) || tx.length > 40) continue
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden') return true
+    }
+    return false
   }
 
   /** 비밀번호·잠금 쪽 오류(즉시 정지) · 그 밖의 오류(실패로 세고 다음 주기) */
