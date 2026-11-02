@@ -71,8 +71,10 @@ public class App extends Application {
     /** 수집 연결: config.accounts 계좌마다 익스텐션 탭이 붙어 있는지 */
     private final HBox collectorRow = new HBox(8);
     private final javafx.scene.control.ComboBox<String> accountFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체 계좌"));
-    /** 입금자명(적요) 또는 계좌번호 검색 — Enter 로 적용, 비우면 전체 */
+    /** 검색어 — [검색] 또는 Enter 로 적용, 비우면 전체 */
     private final javafx.scene.control.TextField searchField = new javafx.scene.control.TextField();
+    /** 검색 대상: 입금자명(적요 부분일치) · 입금액(원 단위 일치) · 거래점(괄호 안 코드 일치, 예 «국민은행(6514)» → 6514) */
+    private final javafx.scene.control.ComboBox<String> searchTarget = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("입금자명", "입금액", "거래점"));
     /** 승인 여부 필터: 전체 · 승인(신청과 매칭됨) · 미승인 */
     private final javafx.scene.control.ComboBox<String> approvedFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체", "승인", "미승인"));
     private final ObservableList<Map<String, Object>> runs = FXCollections.observableArrayList();
@@ -105,9 +107,11 @@ public class App extends Application {
         accountFilter.setValue("전체 계좌");
         accountFilter.getStyleClass().add("account-filter");
         accountFilter.setOnAction(e -> refreshSoon());
-        searchField.setPromptText("입금자명 또는 계좌번호");
-        searchField.setPrefWidth(220);
+        searchField.setPromptText("검색어");
+        searchField.setPrefWidth(200);
         searchField.setOnAction(e -> refreshSoon());
+        searchTarget.setValue("입금자명");
+        searchTarget.getStyleClass().add("account-filter");
         approvedFilter.setValue("전체");
         approvedFilter.getStyleClass().add("account-filter");
         approvedFilter.setOnAction(e -> refreshSoon());
@@ -202,8 +206,7 @@ public class App extends Application {
             Map<String, Object> s = api.summary();
             String acctFilter = accountFilter.getValue() == null || "전체 계좌".equals(accountFilter.getValue()) ? "" : accountFilter.getValue().replaceAll(".*\\*{4}", "").replaceAll("[^0-9]", "");
             String q = searchField.getText() == null ? "" : searchField.getText().trim();
-            // 검색어: 입금자명(적요) 부분일치 · 숫자가 있으면 계좌번호도 — 마스킹 계좌는 하이픈을 뗀 뒤 부분일치
-            String qDigits = q.replaceAll("[^0-9]", "");
+            String target = searchTarget.getValue() == null ? "입금자명" : searchTarget.getValue();
             StringBuilder where = new StringBuilder();
             List<Object> args = new ArrayList<>();
             if (!acctFilter.isEmpty()) {
@@ -217,13 +220,26 @@ public class App extends Application {
                 where.append(" AND approved = 0");
             }
             if (!q.isEmpty()) {
-                where.append(" AND (memo LIKE ?");
-                args.add("%" + q + "%");
-                if (qDigits.length() >= 2) {
-                    where.append(" OR REPLACE(account_masked, '-', '') LIKE ?");
-                    args.add("%" + qDigits + "%");
+                switch (target) {
+                    case "입금액" -> {
+                        // 쉼표·원 등을 떼고 원 단위 정확히 일치
+                        String digits = q.replaceAll("[^0-9]", "");
+                        if (!digits.isEmpty()) {
+                            where.append(" AND deposit_amount = ?");
+                            args.add(Long.parseLong(digits));
+                        }
+                    }
+                    case "거래점" -> {
+                        // «국민은행(6514)» 의 괄호 안 값과 정확히 일치. 괄호 없는 거래점(Hana CBS 등)은 이름 부분일치
+                        where.append(" AND (branch LIKE ? OR branch LIKE ?)");
+                        args.add("%(" + q + ")%");
+                        args.add("%" + q + "%");
+                    }
+                    default -> {
+                        where.append(" AND memo LIKE ?");
+                        args.add("%" + q + "%");
+                    }
                 }
-                where.append(")");
             }
             List<Map<String, Object>> dep = db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, remit_updated, fetched_at FROM bank_deposit WHERE 1=1" + where
                     + " ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300", args.toArray());
@@ -364,15 +380,12 @@ public class App extends Application {
         l.getStyleClass().add("stat-caption");
         Label ls = new Label("검색");
         ls.getStyleClass().add("stat-caption");
-        Button clear = new Button("지우기");
-        clear.setOnAction(e -> {
-            searchField.clear();
-            approvedFilter.setValue("전체");
-            refreshSoon();
-        });
+        Button search = new Button("검색");
+        search.setDefaultButton(true);
+        search.setOnAction(e -> refreshSoon());
         Label la = new Label("승인");
         la.getStyleClass().add("stat-caption");
-        HBox bar = new HBox(8, l, accountFilter, la, approvedFilter, ls, searchField, clear);
+        HBox bar = new HBox(8, l, accountFilter, la, approvedFilter, ls, searchTarget, searchField, search);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(8, 0, 8, 0));
         VBox box = new VBox(0, bar, tv);
