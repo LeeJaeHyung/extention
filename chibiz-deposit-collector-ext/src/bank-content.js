@@ -38,8 +38,19 @@
   let blockedTable = null
   /** (0.1.11) 멈춤 표시를 탭(sessionStorage)에도 남긴다: 'user'([중지]) · 'auto'(실패) — 코드 새로고침으로 새 인스턴스가 와도 멈춤이 풀리지 않게 */
   const STOPPED_KEY = 'chibiz-bank-stopped'
+  // (0.1.12) 멈춤 표시는 «이 문서»에만 묶는다(값에 페이지 로드 시각을 붙임). 페이지를 새로 불러오면(= 계좌 정보 다시 넣고 조회) 멈춤이 풀린다.
+  const DOC_ID = String(Math.round(performance.timeOrigin || 0))
   function setStopped(kind) {
-    try { kind ? sessionStorage.setItem(STOPPED_KEY, kind) : sessionStorage.removeItem(STOPPED_KEY) } catch (e) { /* 무시 */ }
+    try { kind ? sessionStorage.setItem(STOPPED_KEY, kind + '@' + DOC_ID) : sessionStorage.removeItem(STOPPED_KEY) } catch (e) { /* 무시 */ }
+  }
+  function getStopped() {
+    try {
+      const v = sessionStorage.getItem(STOPPED_KEY) || ''
+      const i = v.indexOf('@')
+      if (i < 0) return ''
+      if (v.slice(i + 1) !== DOC_ID) { sessionStorage.removeItem(STOPPED_KEY); return '' }
+      return v.slice(0, i)
+    } catch (e) { return '' }
   }
 
   // ── 화면 읽기 ──────────────────────────────────────────────────────────────
@@ -193,13 +204,16 @@
     const f = form()
     setConditions()
     const before = resultTable()
+    // (0.1.12) 오류 문구는 «제출 뒤 새로 나타난 글»에서만 찾는다 — 폼 라벨 «계좌비밀번호» 같은 상시 문구에 걸리지 않게.
+    const beforeLines = new Set(bodyLines())
     await pageCmd('submit')
     const until = Date.now() + B.requeryTimeoutMs
     while (Date.now() < until) {
       await sleep(500)
       const loading = document.querySelector('img[src*="Loading"]')
       const t = resultTable()
-      const errText = (document.body.innerText.match(/시스템 장애중|잠시후 다시|비밀번호.*오류|오류가 발생/) || [])[0]
+      const fresh = bodyLines().filter((l) => !beforeLines.has(l)).join('\n')
+      const errText = (fresh.match(/시스템 장애중|잠시후 다시|비밀번호[^\n]{0,40}(오류|일치하지|틀|확인)|횟수[^\n]{0,20}초과|잠금|잠겼|오류가 발생/) || [])[0]
       if (errText) throw new Error(errText)
       if (!loading && t && (t !== before || (before && Date.now() - lastRun > 3000))) {
         // J 지시(2026-10-29): 응답이 돌아온 뒤 5초 더 기다렸다가 표를 읽는다(화면이 다 그려진 뒤 리스트업)
@@ -208,6 +222,10 @@
       }
     }
     throw new Error('조회 결과를 시간 안에 받지 못함')
+  }
+
+  function bodyLines() {
+    return (document.body.innerText || '').split('\n').map((l) => l.trim()).filter(Boolean)
   }
 
   function sleep(ms) {
@@ -329,8 +347,8 @@
       render()
       logRun(false, 0, 0, lastError + ' (' + Math.round((Date.now() - t0) / 1000) + 's)')
       // (0.1.10) 비밀번호 오류는 한 번이면 바로 멈춘다 — 은행의 비밀번호 오류 횟수 제한(계좌 잠김)에 걸리지 않게. 다시 [조회]할 때까지 자동 시작도 안 한다.
-      if (/비밀번호/.test(lastError)) {
-        autoStop('비밀번호 오류로 멈춤 — 계좌 정보를 다시 넣고 [조회]하세요 (반복하면 계좌가 잠깁니다)')
+      if (/비밀번호|횟수|잠금|잠겼/.test(lastError)) {
+        autoStop('비밀번호 오류로 멈춤 — 계좌 정보를 다시 넣고 [조회]하세요 (반복하면 계좌가 잠깁니다): ' + lastError)
         return
       }
       // stopAfterFails 0 = 멈추지 않고 다음 주기에 다시 시도(연속 수집 시험용)
@@ -450,8 +468,7 @@
     // (0.1.9) 자동 시작: 관리자가 은행의 [조회]를 눌러 결과 표가 뜨면(= canRequery) 패널의 [실행]을 누르지 않아도 시작한다.
     // 코드 새로고침 뒤 이어서 실행하는 것도 같은 길로 된다(표가 그대로 있으므로). [중지]를 누른 탭은 다시 [실행]을 누를 때까지 가만히 둔다.
     // (0.1.11) 옛 인스턴스가 멈춰 있었으면 그 멈춤을 이어받는다 — [중지]면 [실행]까지, 실패면 다시 [조회]까지 자동 시작 안 함
-    let stoppedKind = ''
-    try { stoppedKind = sessionStorage.getItem(STOPPED_KEY) || '' } catch (e) { /* 무시 */ }
+    const stoppedKind = getStopped()
     if (stoppedKind === 'user') userStopped = true
     else if (stoppedKind === 'auto') { blockedTable = resultTable() || document.body; lastError = '실패로 멈춘 상태 — 계좌 정보를 다시 넣고 [조회]하세요'; render() }
     setInterval(() => {
