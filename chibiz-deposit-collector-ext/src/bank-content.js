@@ -36,6 +36,11 @@
    * 관리자가 다시 [조회]해서 표가 새로 그려지거나(= 요소가 바뀜) [실행]을 눌러야 다시 돈다. 실패-재시작이 1초마다 도는 것을 막는다.
    */
   let blockedTable = null
+  /** (0.1.11) 멈춤 표시를 탭(sessionStorage)에도 남긴다: 'user'([중지]) · 'auto'(실패) — 코드 새로고침으로 새 인스턴스가 와도 멈춤이 풀리지 않게 */
+  const STOPPED_KEY = 'chibiz-bank-stopped'
+  function setStopped(kind) {
+    try { kind ? sessionStorage.setItem(STOPPED_KEY, kind) : sessionStorage.removeItem(STOPPED_KEY) } catch (e) { /* 무시 */ }
+  }
 
   // ── 화면 읽기 ──────────────────────────────────────────────────────────────
 
@@ -342,6 +347,7 @@
     }
     running = true
     lastError = ''
+    setStopped(null)
     try { sessionStorage.setItem(RUNNING_KEY, '1') } catch (e) { /* 무시 */ }
     render()
     hello()
@@ -364,6 +370,7 @@
   /** 실패로 멈춤: 지금 결과 표를 기억해 두고, 표가 새로 그려질 때까지 자동 시작을 막는다 */
   function autoStop(reason) {
     blockedTable = resultTable() || document.body
+    setStopped('auto')
     stop(reason)
   }
 
@@ -415,10 +422,12 @@
     btn.addEventListener('click', () => {
       if (running) {
         userStopped = true
+        setStopped('user')
         stop('')
       } else {
         userStopped = false
         blockedTable = null
+        setStopped(null)
         start()
       }
     })
@@ -440,6 +449,11 @@
     render()
     // (0.1.9) 자동 시작: 관리자가 은행의 [조회]를 눌러 결과 표가 뜨면(= canRequery) 패널의 [실행]을 누르지 않아도 시작한다.
     // 코드 새로고침 뒤 이어서 실행하는 것도 같은 길로 된다(표가 그대로 있으므로). [중지]를 누른 탭은 다시 [실행]을 누를 때까지 가만히 둔다.
+    // (0.1.11) 옛 인스턴스가 멈춰 있었으면 그 멈춤을 이어받는다 — [중지]면 [실행]까지, 실패면 다시 [조회]까지 자동 시작 안 함
+    let stoppedKind = ''
+    try { stoppedKind = sessionStorage.getItem(STOPPED_KEY) || '' } catch (e) { /* 무시 */ }
+    if (stoppedKind === 'user') userStopped = true
+    else if (stoppedKind === 'auto') { blockedTable = resultTable() || document.body; lastError = '실패로 멈춘 상태 — 계좌 정보를 다시 넣고 [조회]하세요'; render() }
     setInterval(() => {
       if (dead || running || userStopped) return
       if (!canRequery()) return
