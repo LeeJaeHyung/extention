@@ -33,8 +33,19 @@ CREATE TABLE IF NOT EXISTS collect_run (
   inserted    INT          NOT NULL DEFAULT 0 COMMENT '새로 저장된 행 수',
   error       VARCHAR(500) NULL     COMMENT '실패 사유',
   ext_version VARCHAR(20)  NULL,
+  account_masked VARCHAR(20) NULL COMMENT '이 실행이 조회한 계좌(끝 4자리)',
   KEY idx_run (run_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='수집 실행 기록 — 언제까지 세션이 살아있었는지 확인용';
+
+-- 익스텐션 탭(계좌 하나씩)이 [실행] 때와 매 실행 보고 때 알려 오는 «어느 계좌를 조회 중인지». 화면 «수집 연결» 줄.
+CREATE TABLE IF NOT EXISTS collector (
+  account_masked VARCHAR(20)  NOT NULL PRIMARY KEY COMMENT '****끝4자리',
+  ext_version    VARCHAR(20)  NULL,
+  first_seen_at  DATETIME     NOT NULL COMMENT '처음 연결([실행]) 시각',
+  last_seen_at   DATETIME     NOT NULL COMMENT '마지막 연결/실행 보고 시각',
+  last_run_at    DATETIME     NULL     COMMENT '마지막 실행 보고 시각',
+  runs           INT          NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='수집 익스텐션 연결 상태(계좌별)';
 
 -- 사이트(CHIBIZ·SUPER) 신청 큐의 병합본. 정본은 여기(어느 입금과 붙었는지·콜백 결과를 기억).
 CREATE TABLE IF NOT EXISTS deposit_claim (

@@ -68,6 +68,8 @@ public class App extends Application {
     private final Label statLastPoll = stat("-");
     private final ObservableList<Map<String, Object>> deposits = FXCollections.observableArrayList();
     private final HBox accountRow = new HBox(8);
+    /** 수집 연결: config.accounts 계좌마다 익스텐션 탭이 붙어 있는지 */
+    private final HBox collectorRow = new HBox(8);
     private final javafx.scene.control.ComboBox<String> accountFilter = new javafx.scene.control.ComboBox<>(FXCollections.observableArrayList("전체 계좌"));
     /** 입금자명(적요) 또는 계좌번호 검색 — Enter 로 적용, 비우면 전체 */
     private final javafx.scene.control.TextField searchField = new javafx.scene.control.TextField();
@@ -95,7 +97,9 @@ public class App extends Application {
         root.setTop(new VBox(utilityBar(), nav()));
         accountRow.getStyleClass().add("account-row");
         accountRow.setAlignment(Pos.CENTER_LEFT);
-        root.setCenter(new VBox(0, stats(), accountRow, tabs()));
+        collectorRow.getStyleClass().add("account-row");
+        collectorRow.setAlignment(Pos.CENTER_LEFT);
+        root.setCenter(new VBox(0, stats(), collectorRow, accountRow, tabs()));
         accountFilter.setValue("전체 계좌");
         accountFilter.getStyleClass().add("account-filter");
         accountFilter.setOnAction(e -> refreshSoon());
@@ -242,6 +246,19 @@ public class App extends Application {
                 }
                 statClaims.setText("대기 " + pending + " · 매칭 " + matched);
                 statLastPoll.setText(matcher.lastPollAt() == null ? "-" : matcher.lastPollAt().format(TS));
+                // 수집 연결 칩: 계좌마다 연결(초록) · 끊김(빨강, 마지막 보고 시각) · 미연결(회색)
+                collectorRow.getChildren().clear();
+                Label ccap = new Label("수집 연결");
+                ccap.getStyleClass().add("stat-caption");
+                collectorRow.getChildren().add(ccap);
+                for (Map<String, Object> r : (List<Map<String, Object>>) s.get("collectors")) {
+                    String st = Db.str(r.get("state"));
+                    String last = Db.str(r.get("lastSeenAt"));
+                    String when = last.length() >= 16 ? last.substring(5, 16) : last;
+                    Label c = new Label(Db.str(r.get("label")) + (st.equals("NONE") ? " · 미연결" : st.equals("CONNECTED") ? " · 연결 " + when : " · 끊김 (마지막 " + when + ")"));
+                    c.getStyleClass().addAll("chip", st.equals("CONNECTED") ? "chip-ok" : st.equals("STALE") ? "chip-bad" : "chip-muted");
+                    collectorRow.getChildren().add(c);
+                }
                 // 계좌별 오늘 입금 칩 + 필터 목록
                 accountRow.getChildren().clear();
                 Label cap = new Label("계좌별 오늘");

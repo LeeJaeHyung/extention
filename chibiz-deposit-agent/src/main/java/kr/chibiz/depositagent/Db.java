@@ -63,6 +63,10 @@ public class Db {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN account VARCHAR(8) NULL COMMENT '이 계좌(끝4자리) 입금만 대조' AFTER ref_id");
             }
             // 0.2.4: 서버 송금내역 업데이트 확인(콜백 200 받은 입금)
+            // 0.2.5: 실행 기록에 조회 계좌
+            if (!hasColumn(conn, "collect_run", "account_masked")) {
+                st.execute("ALTER TABLE collect_run ADD COLUMN account_masked VARCHAR(20) NULL COMMENT '이 실행이 조회한 계좌(끝 4자리)' AFTER ext_version");
+            }
             if (!hasColumn(conn, "bank_deposit", "remit_updated")) {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN remit_updated TINYINT NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)' AFTER approved_at, ADD COLUMN remit_updated_at DATETIME NULL AFTER remit_updated");
             }
@@ -135,14 +139,35 @@ public class Db {
         return new int[]{inserted, dup};
     }
 
-    public void saveRun(LocalDateTime at, boolean ok, int rowsRead, int inserted, String error, String extVersion) throws SQLException {
-        try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement("INSERT INTO collect_run (run_at, ok, rows_read, inserted, error, ext_version) VALUES (?,?,?,?,?,?)")) {
+    /** 익스텐션 탭이 알려 온 조회 계좌. isRun=true 면 실행 보고(횟수·last_run_at 갱신) */
+    public void upsertCollector(String accountMasked, String extVersion, LocalDateTime at, boolean isRun) throws SQLException {
+        if (accountMasked == null || accountMasked.isBlank()) {
+            return;
+        }
+        String sql = "INSERT INTO collector (account_masked, ext_version, first_seen_at, last_seen_at, last_run_at, runs) VALUES (?,?,?,?,?,?)"
+                + " ON DUPLICATE KEY UPDATE ext_version = VALUES(ext_version), last_seen_at = VALUES(last_seen_at),"
+                + " last_run_at = IFNULL(VALUES(last_run_at), last_run_at), runs = runs + VALUES(runs)";
+        try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            Timestamp ts = Timestamp.valueOf(at);
+            ps.setString(1, accountMasked);
+            ps.setString(2, nul(extVersion));
+            ps.setTimestamp(3, ts);
+            ps.setTimestamp(4, ts);
+            ps.setTimestamp(5, isRun ? ts : null);
+            ps.setInt(6, isRun ? 1 : 0);
+            ps.executeUpdate();
+        }
+    }
+
+    public void saveRun(LocalDateTime at, boolean ok, int rowsRead, int inserted, String error, String extVersion, String accountMasked) throws SQLException {
+        try (Connection conn = open(); PreparedStatement ps = conn.prepareStatement("INSERT INTO collect_run (run_at, ok, rows_read, inserted, error, ext_version, account_masked) VALUES (?,?,?,?,?,?,?)")) {
             ps.setTimestamp(1, Timestamp.valueOf(at));
             ps.setInt(2, ok ? 1 : 0);
             ps.setInt(3, rowsRead);
             ps.setInt(4, inserted);
             ps.setString(5, nul(left(error, 500)));
             ps.setString(6, nul(extVersion));
+            ps.setString(7, nul(accountMasked));
             ps.executeUpdate();
         }
     }

@@ -34,6 +34,21 @@ const handlers = {
     }
   },
 
+  /** [실행] 때 이 탭이 조회하는 계좌 → 에이전트 /collector (화면 «수집 연결») */
+  async BANK_HELLO(msg, sender) {
+    if (senderOrigin(sender) !== BANK_ORIGIN || !sender.tab) return { ok: false }
+    try {
+      await fetch(C.BANK.agentUrl + '/collector', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountMasked: String(msg.accountMasked || ''), at: msg.at, extVersion: chrome.runtime.getManifest().version }),
+      })
+    } catch (e) {
+      // 연결 알림 실패는 무시(다음 실행 보고에 계좌가 또 실린다)
+    }
+    return { ok: true }
+  },
+
   /** 실행 1회 결과 → 에이전트 /runs (30일 연속 수집 시험 기록) */
   async BANK_RUN(msg, sender) {
     if (senderOrigin(sender) !== BANK_ORIGIN || !sender.tab) return { ok: false }
@@ -41,7 +56,7 @@ const handlers = {
       await fetch(C.BANK.agentUrl + '/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ok: !!msg.ok, rowsRead: msg.rowsRead || 0, inserted: msg.inserted || 0, error: String(msg.error || '').slice(0, 500), at: msg.at, extVersion: chrome.runtime.getManifest().version }),
+        body: JSON.stringify({ ok: !!msg.ok, rowsRead: msg.rowsRead || 0, inserted: msg.inserted || 0, error: String(msg.error || '').slice(0, 500), at: msg.at, extVersion: chrome.runtime.getManifest().version, accountMasked: String(msg.accountMasked || '') }),
       })
     } catch (e) {
       // 기록 실패는 무시

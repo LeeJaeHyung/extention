@@ -97,7 +97,9 @@ public class HttpApi {
             if ("POST".equals(method) && "/runs".equals(path)) {
                 Map<String, Object> body = readJson(ex);
                 boolean ok = Boolean.TRUE.equals(body.get("ok"));
-                db.saveRun(parseIso(Db.str(body.get("at"))), ok, (int) Db.toLong(body.get("rowsRead")), (int) Db.toLong(body.get("inserted")), Db.str(body.get("error")), Db.str(body.get("extVersion")));
+                String acct = Db.str(body.get("accountMasked"));
+                db.saveRun(parseIso(Db.str(body.get("at"))), ok, (int) Db.toLong(body.get("rowsRead")), (int) Db.toLong(body.get("inserted")), Db.str(body.get("error")), Db.str(body.get("extVersion")), acct);
+                db.upsertCollector(acct, Db.str(body.get("extVersion")), parseIso(Db.str(body.get("at"))), true);
                 if (!ok) {
                     AgentLog.warn("수집 실패 보고: " + Db.str(body.get("error")));
                     List<Map<String, Object>> recent = db.query("SELECT ok FROM collect_run ORDER BY id DESC LIMIT ?", cfg.matching.alertAfterFails);
@@ -107,6 +109,16 @@ public class HttpApi {
                                 "수집 PC 크롬에서 빠른조회에 계좌 정보를 다시 넣고 조회 후 [실행]");
                     }
                 }
+                onDeposits.run();
+                send(ex, 200, Map.of("ok", true));
+                return;
+            }
+            if ("POST".equals(method) && "/collector".equals(path)) {
+                // 익스텐션 [실행]: 이 탭이 조회하는 계좌 → 화면 «수집 연결»
+                Map<String, Object> body = readJson(ex);
+                String acct = Db.str(body.get("accountMasked"));
+                db.upsertCollector(acct, Db.str(body.get("extVersion")), parseIso(Db.str(body.get("at"))), false);
+                AgentLog.info("수집 연결 " + (acct.isEmpty() ? "(계좌 못 읽음)" : cfg.accountLabel(acct)) + " ext " + Db.str(body.get("extVersion")));
                 onDeposits.run();
                 send(ex, 200, Map.of("ok", true));
                 return;
@@ -148,10 +160,53 @@ public class HttpApi {
             r.put("label", cfg.accountLabel(Db.str(r.get("account_masked"))));
         }
         out.put("accounts", accts);
+        // 수집 연결: config.accounts 의 계좌마다 익스텐션 탭이 붙어 있는지(마지막 보고가 alertNoRunMinutes 안이면 연결)
+        List<Map<String, Object>> seen = db.query("SELECT account_masked, ext_version, first_seen_at, last_seen_at, last_run_at, runs FROM collector");
+        List<Map<String, Object>> collectors = new java.util.ArrayList<>();
+        java.util.Set<String> done = new java.util.HashSet<>();
+        for (Config.Account a : cfg.accounts) {
+            String last4 = a.last4 == null ? "" : a.last4.replaceAll("[^0-9]", "");
+            Map<String, Object> row = null;
+            for (Map<String, Object> r : seen) {
+                if (!last4.isEmpty() && Db.str(r.get("account_masked")).endsWith(last4)) {
+                    row = r;
+                }
+            }
+            collectors.add(collectorRow(a.label, "****" + last4, row));
+            if (row != null) {
+                done.add(Db.str(row.get("account_masked")));
+            }
+        }
+        for (Map<String, Object> r : seen) {
+            if (!done.contains(Db.str(r.get("account_masked")))) {
+                collectors.add(collectorRow(null, Db.str(r.get("account_masked")), r));
+            }
+        }
+        out.put("collectors", collectors);
         out.put("claims", db.query("SELECT site_code, status, COUNT(*) n FROM deposit_claim GROUP BY site_code, status"));
         out.put("callbacks", db.query("SELECT callback_status, COUNT(*) n FROM deposit_claim WHERE status = 'MATCHED' GROUP BY callback_status"));
         out.put("sites", matcher.sites().stream().map(s -> s.code).toList());
         return out;
+    }
+
+    /** state: CONNECTED(마지막 보고가 alertNoRunMinutes 안) · STALE(그보다 오래됨) · NONE(한 번도 안 붙음) */
+    private Map<String, Object> collectorRow(String label, String masked, Map<String, Object> r) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("account", masked);
+        m.put("label", label == null ? cfg.accountLabel(masked) : label + " (" + masked + ")");
+        if (r == null) {
+            m.put("state", "NONE");
+            return m;
+        }
+        LocalDateTime last = parseIso(Db.str(r.get("last_seen_at")).replace(' ', 'T'));
+        boolean live = last.isAfter(LocalDateTime.now().minusMinutes(cfg.matching.alertNoRunMinutes));
+        m.put("state", live ? "CONNECTED" : "STALE");
+        m.put("extVersion", r.get("ext_version"));
+        m.put("firstSeenAt", Db.str(r.get("first_seen_at")));
+        m.put("lastSeenAt", Db.str(r.get("last_seen_at")));
+        m.put("lastRunAt", Db.str(r.get("last_run_at")));
+        m.put("runs", Db.toLong(r.get("runs")));
+        return m;
     }
 
     private static Map<String, Object> first(List<Map<String, Object>> rows) {

@@ -278,7 +278,12 @@
 
   /** 실행 1회의 결과를 에이전트 collect_run 표에 남긴다(30일 연속 수집 시험: 언제부터 실패했는지 보려고). */
   function logRun(ok, rowsRead, inserted, error) {
-    chrome.runtime.sendMessage({ type: 'BANK_RUN', ok, rowsRead, inserted, error: error || '', at: new Date().toISOString() }).catch(() => {})
+    chrome.runtime.sendMessage({ type: 'BANK_RUN', ok, rowsRead, inserted, error: error || '', at: new Date().toISOString(), accountMasked: accountMasked() }).catch(() => {})
+  }
+
+  /** (0.1.5) [실행] 때 «이 탭은 어느 계좌를 조회하는지»를 에이전트에 알린다 → 에이전트 화면의 «수집 연결» 줄 */
+  function hello() {
+    chrome.runtime.sendMessage({ type: 'BANK_HELLO', accountMasked: accountMasked(), at: new Date().toISOString() }).catch(() => {})
   }
 
   async function runOnce(withRequery) {
@@ -314,6 +319,7 @@
     running = true
     lastError = ''
     render()
+    hello()
     // [실행] 은 항상 «어제~오늘 · 입금내역 · 60건» 으로 다시 조회한 결과를 읽는다(화면에 남은 표가 다른 조건일 수 있으므로)
     runOnce(true).then(scheduleNext)
   }
