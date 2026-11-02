@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font: 13px/1.5 sans-serif; color: #111; margin: 0; padding: 12px 14px; min-width: 260px; }
+  h1 { font-size: 14px; margin: 0 0 4px; }
+  .ver { color: #666; margin-bottom: 10px; }
+  button { display: block; width: 100%; padding: 8px 10px; margin-top: 6px; font-size: 13px; border: 1px solid #0d9488; background: #fff; color: #0d9488; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #f0fdfa; }
+  button.primary { background: #0d9488; color: #fff; }
+  .note { color: #666; font-size: 12px; margin-top: 8px; white-space: pre-line; }
+</style>
+</head>
+<body>
+  <h1>차이비즈 입금 수집</h1>
+  <div class="ver" id="ver"></div>
+  <button class="primary" id="reload">새로고침 — 바뀐 코드 적용</button>
+  <button id="tabs">은행 탭만 새로고침</button>
+  <div class="note">«새로고침»은 폴더의 새 코드를 다시 읽고(chrome://extensions 의 ↻ 와 같음) 열린 빠른조회 탭도 같이 새로고침합니다. 그 뒤 탭마다 계좌 정보를 다시 넣고 조회 → [실행].</div>
+  <script src="popup.js"></script>
+</body>
+</html>

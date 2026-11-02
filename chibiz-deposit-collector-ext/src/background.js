@@ -75,3 +75,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })
   return true
 })
+
+// 0.1.6: 익스텐션이 (툴바 메뉴의 «새로고침» 또는 chrome://extensions ↻ 로) 다시 읽히면 열린 빠른조회 탭을 새로고침한다 —
+// 옛 콘텐츠 스크립트는 끊긴 채 남으므로 탭을 다시 열어야 새 코드가 붙는다. 사용자는 탭마다 계좌 정보를 다시 넣고 [실행].
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    const tabs = await chrome.tabs.query({ url: 'https://www.kebhana.com/flex/quick/*' })
+    for (const t of tabs) chrome.tabs.reload(t.id)
+  } catch (e) {
+    // 탭 조회 실패는 무시
+  }
+})
