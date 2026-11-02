@@ -235,6 +235,8 @@
   function bodyLines() {
     const t = resultTable()
     const skip = new Set(t ? (t.innerText || '').split('\n').map((l) => l.trim()).filter(Boolean) : [])
+    // (0.1.14) 이 패널의 글도 뺀다 — «비밀번호 오류로 멈춤…» 안내가 자기 검사에 걸리지 않게
+    if (panel) for (const l of (panel.innerText || '').split('\n')) { const v = l.trim(); if (v) skip.add(v) }
     return (document.body.innerText || '').split('\n').map((l) => l.trim()).filter((l) => l && !skip.has(l))
   }
 
