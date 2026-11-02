@@ -210,7 +210,7 @@ public class App extends Application {
                 }
                 where.append(")");
             }
-            List<Map<String, Object>> dep = db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, fetched_at FROM bank_deposit WHERE 1=1" + where
+            List<Map<String, Object>> dep = db.query("SELECT account_masked, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, approved, remit_updated, fetched_at FROM bank_deposit WHERE 1=1" + where
                     + " ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 300", args.toArray());
             for (Map<String, Object> r : dep) {
                 r.put("account", cfg.accountLabel(Db.str(r.get("account_masked"))));
@@ -321,7 +321,7 @@ public class App extends Application {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(
-                tab("입금 내역", withFilter(table(deposits, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80", "memo:적요(입금자명):220", "deposit_amount:입금액:120:won", "balance:잔액:130:won", "branch:거래점:140", "approved:승인:60:yn", "fetched_at:읽은 시각:150"))),
+                tab("입금 내역", withFilter(table(deposits, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80", "memo:적요(입금자명):220", "deposit_amount:입금액:120:won", "balance:잔액:130:won", "branch:거래점:140", "approved:승인:60:yn", "remit_updated:송금내역:70:chk", "fetched_at:읽은 시각:150"))),
                 tab("실행 기록", table(runs, "run_at:실행 시각:160", "ok:결과:70:okfail", "rows_read:읽은 행:80", "inserted:새로 저장:80", "error:실패 사유:600")),
                 tab("신청 큐", table(claims, "site_code:사이트:80", "claim_id:신청:80", "claim_type:유형:110", "member_name:회원:110", "depositor_names:입금자명 후보:260", "amount:금액:120:won", "tolerance_pct:오차%:60", "status:상태:90", "requested_at:신청 시각:150", "expires_at:만료:150")),
                 tab("매칭·콜백", table(matches, "site_code:사이트:80", "claim_id:신청:80", "claim_type:유형:110", "amount:신청 금액:110:won", "matched_depositor:입금자:160", "matched_amount:입금액:110:won", "matched_tx_date:거래일:100", "matched_tx_time:시간:60", "matched_at:매칭 시각:150", "callback_status:콜백:70", "callback_tries:시도:50", "callback_last_error:콜백 오류:300")),
@@ -362,7 +362,7 @@ public class App extends Application {
         return logArea;
     }
 
-    /** "key:제목:너비[:형식]" 로 열을 만든다. 형식 won(천단위) · yn(1→승인) · okfail(1→성공, 0→실패 빨강) */
+    /** "key:제목:너비[:형식]" 로 열을 만든다. 형식 won(천단위) · yn(1→승인) · chk(1→확인) · okfail(1→성공, 0→실패 빨강) */
     private TableView<Map<String, Object>> table(ObservableList<Map<String, Object>> items, String... cols) {
         TableView<Map<String, Object>> tv = new TableView<>(items);
         tv.setPlaceholder(new Label("아직 데이터가 없습니다"));
@@ -403,6 +403,8 @@ public class App extends Application {
                 return WON.format(Db.toLong(v));
             case "yn":
                 return Db.toLong(v) == 1 ? "승인" : "";
+            case "chk":
+                return Db.toLong(v) == 1 ? "확인" : "";
             case "okfail":
                 return Db.toLong(v) == 1 ? "성공" : "실패";
             default:

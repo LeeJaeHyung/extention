@@ -62,6 +62,10 @@ public class Db {
             if (!hasColumn(conn, "deposit_claim", "account")) {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN account VARCHAR(8) NULL COMMENT '이 계좌(끝4자리) 입금만 대조' AFTER ref_id");
             }
+            // 0.2.4: 서버 송금내역 업데이트 확인(콜백 200 받은 입금)
+            if (!hasColumn(conn, "bank_deposit", "remit_updated")) {
+                st.execute("ALTER TABLE bank_deposit ADD COLUMN remit_updated TINYINT NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)' AFTER approved_at, ADD COLUMN remit_updated_at DATETIME NULL AFTER remit_updated");
+            }
             if (!hasColumn(conn, "deposit_claim", "amounts")) {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN amounts VARCHAR(600) NULL COMMENT '맞다고 볼 금액 목록(쉼표)' AFTER account");
             }

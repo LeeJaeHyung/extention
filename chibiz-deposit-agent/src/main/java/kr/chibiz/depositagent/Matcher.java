@@ -417,6 +417,10 @@ public class Matcher {
                 boolean done = rep.status() == 200 || rep.status() == 409;
                 db.update("UPDATE deposit_claim SET callback_status = ?, callback_tries = callback_tries + 1, callback_at = NOW(), callback_last_error = ?, updated_at = NOW() WHERE id = ?",
                         done ? (rep.status() == 200 ? "OK" : "ALREADY") : "FAIL", done ? null : Db.left(rep.status() + " " + rep.raw(), 300), r.get("id"));
+                if (rep.status() == 200) {
+                    // 서버가 송금내역을 갱신했음 — 입금 쪽에도 확인 표시
+                    db.update("UPDATE bank_deposit SET remit_updated = 1, remit_updated_at = NOW() WHERE id = ?", r.get("bank_deposit_id"));
+                }
                 AgentLog.info("콜백 " + site.code + " 신청 " + claimId + " → " + rep.status());
             } catch (Exception e) {
                 db.update("UPDATE deposit_claim SET callback_status = 'FAIL', callback_tries = callback_tries + 1, callback_at = NOW(), callback_last_error = ?, updated_at = NOW() WHERE id = ?",

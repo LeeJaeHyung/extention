@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS bank_deposit (
   approved        TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 신청과 매칭됨(승인)',
   approved_claim_id BIGINT     NULL     COMMENT 'deposit_claim.id',
   approved_at     DATETIME     NULL,
+  remit_updated   TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)',
+  remit_updated_at DATETIME    NULL,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_dedup (dedup_key),
   KEY idx_tx (tx_date, tx_time),
