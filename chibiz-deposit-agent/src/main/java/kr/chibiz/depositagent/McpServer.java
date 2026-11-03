@@ -130,7 +130,7 @@ public class McpServer {
                     info.put("name", "chibiz-deposit-agent");
                     info.put("version", "0.2.0");
                     result.put("instructions", "차이비즈 입금 에이전트. 하나은행 빠른조회에서 수집한 입금(bank_deposit · 계좌가 여러 개면 account 로 구분), 수집 실행 기록(collect_run), 사이트 신청 큐·매칭·콜백(deposit_claim)을 읽는다. "
-                            + "매칭 규칙: 입금자명 정규화(공백·법인표기·특수문자 제거) 완전 일치 + 금액 ±오차% + 입금 시각 ≥ 신청−" + cfg.matching.beforeRequestDays + "일, 신청 오래된 순. "
+                            + "매칭 규칙: 입금자명 정규화(공백 제거·법인표기 «주식회사/유한회사/(주)/㈜» 제거·소문자) 완전 일치 + 금액 ±오차% + 입금 시각 ≥ 신청−" + cfg.matching.beforeRequestDays + "일, 신청 오래된 순. "
                             + "왜 안 맞았는지는 find_candidates 로 본다. 금액 단위 원.");
                     return ok(id, result);
                 }
@@ -320,7 +320,7 @@ public class McpServer {
             }
             List<String> why = new ArrayList<>();
             if (!nameOk) {
-                why.add("입금자명 다름(공백 제거 '" + Matcher.normName(Db.str(d.get("memo"))) + "' ≠ " + names + ")");
+                why.add("입금자명 다름(공백·법인표기 제거 '" + Matcher.normName(Db.str(d.get("memo"))) + "' ≠ " + names + ")");
             }
             if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
                 why.add("다른 계좌(" + Db.str(d.get("account_masked")) + " · 이 신청은 " + wantAcct + " 만)");

@@ -295,12 +295,20 @@ public class Matcher {
             return "";
         }
         // 대소문자는 구분하지 않는다(J 2026-11-02 18:50) — 영문 아이디·상호
-        return s.replaceAll("\\s+", "").toLowerCase();
+        String n = s.replaceAll("\\s+", "");
+        // 법인 표기는 빼고 비교한다(J 2026-11-03): «주식회사 트라이브릭» 과 통장의 «(주)트라이브릭» 이 같은 이름
+        for (String t : CORP_TOKENS) {
+            n = n.replace(t, "");
+        }
+        return n.toLowerCase();
     }
+
+    /** 공백을 지운 뒤 제거하는 법인 표기(J 2026-11-03 지정 4가지). */
+    static final String[] CORP_TOKENS = {"주식회사", "유한회사", "(주)", "㈜"};
 
     /**
      * 정규화한 은행 입금자명이 후보 중 하나와 «정확히 같은가»(J 2026-11-02: 포함·앞부분 일치 없음).
-     * 금액은 따로 원 단위까지 맞춰 보고, 이름은 공백 제거 뒤 완전 일치만 인정한다.
+     * 금액은 따로 원 단위까지 맞춰 보고, 이름은 공백·법인표기 제거 뒤 완전 일치만 인정한다.
      */
     static boolean nameMatches(List<String> names, String bank) {
         if (bank == null || bank.isEmpty()) {
