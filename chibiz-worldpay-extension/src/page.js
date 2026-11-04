@@ -121,6 +121,18 @@
    */
   function creditPayButton() {
     const want = C.TEXT.creditPayButtonText
+    const normal = creditNormalPayButton()
+    if (normal) return normal
+    // 🆕 0.7.3 실측(2026-11-04, 주문 3316549190164002998 · cashier-se 변형): 외상 카드를 골라도 «免密支付/普通支付» 두 버튼이 없고
+    //    하단 «立即付款» 하나뿐인 결제창이 있다. 그때는 월드페이와 같은 결제 버튼을 쓴다(«免密支付» 는 여전히 후보가 아님).
+    const fallback = payButton()
+    if (fallback && Core.normalizeText(fallback.textContent).includes(C.TEXT.creditNoPasswordText)) return null
+    return fallback
+  }
+
+  /** «普通支付» 글자의 외상 결제 버튼(0.6.3 실측 화면) — 없으면 null */
+  function creditNormalPayButton() {
+    const want = C.TEXT.creditPayButtonText
     const all = Array.from(document.querySelectorAll('q-button, button, [role=button], a, div, span')).filter(
       (el) => Core.normalizeText(el.textContent) === want && ![...el.children].some((c) => Core.normalizeText(c.textContent) === want),
     )

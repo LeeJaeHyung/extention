@@ -394,11 +394,10 @@
     // 결제 버튼
     // 🆕 0.6.3 외상은 «普通支付» 버튼
     const btn = (W === C.CREDIT_CHANNEL ? snapshot.creditPayButton : snapshot.payButton) || {}
-    const wantText = W === C.CREDIT_CHANNEL ? C.TEXT.creditPayButtonText : C.TEXT.payButtonText
     // 🆕 0.4.1 — 없음(MISSING)과 «있는데 못 누름»(DISABLED · disabled·loading)을 나눔 · 흐름은 둘 다 잠시 기다렸다가 다시 봄(executeJobFlow)
     if (!btn.present) return { action: 'STOP', code: 'PAY_BUTTON_MISSING' }
     if (btn.disabled) return { action: 'STOP', code: 'PAY_BUTTON_DISABLED' }
-    if (!normalizeText(btn.text).includes(wantText) || normalizeText(btn.text).includes(C.TEXT.creditNoPasswordText)) return { action: 'STOP', code: 'PAY_BUTTON_TEXT' }
+    if (!isPayButtonText(btn.text, W)) return { action: 'STOP', code: 'PAY_BUTTON_TEXT' }
     return { action: 'READY' }
   }
 
@@ -655,6 +654,18 @@
    * 🔴 월드페이(kjpayV2) 밖의 결제 수단 카드·조합결제 카드 안의 요소는 어떤 목적이든 false.
    * 🆕 0.3.0 — 비밀번호 창에서는 익스텐션이 아무것도 누르지 않습니다(사람이 직접). «passwordNext» 목적은 없앴습니다.
    */
+  /**
+   * 결제 버튼 글자 판정 — 월드페이: «立即付款» 포함(조합결제 «组合付款» 거절).
+   * 외상: 정확히 «普通支付»(0.6.3 실측) 또는 🆕 0.7.3 «立即付款»(cashier-se 변형 실측 2026-11-04 — 외상 카드를 골라도 버튼이 하나뿐).
+   * 🔴 «免密支付» 는 어떤 수단에서도 거절.
+   */
+  function isPayButtonText(raw, W) {
+    const text = normalizeText(raw)
+    if (text.includes(C.TEXT.creditNoPasswordText)) return false
+    if (W === C.CREDIT_CHANNEL && text === C.TEXT.creditPayButtonText) return true
+    return text.includes(C.TEXT.payButtonText) && !text.includes('组合')
+  }
+
   function isClickAllowed(desc, purpose, target) {
     // 🆕 0.6.0 누를 결제 수단은 월드페이(기본) 또는 서버가 지정한 외상 둘 중 하나만 — 그 밖 값은 월드페이로 봄
     const W = target === C.CREDIT_CHANNEL ? C.CREDIT_CHANNEL : C.WORLDPAY_CHANNEL
@@ -671,11 +682,8 @@
         // 결제 버튼이 잡은 수단 — 있으면 kjpayV2 여야 하고, 묶음은 반드시 있어야 함
         if (desc.operateZoneChannel != null && desc.operateZoneChannel !== W) return false
         if (desc.operateZoneChannel == null && desc.pageKind !== 'single') return false
-        // 글자가 «立即付款» 이어야 함(조합결제면 «组合付款») · 🆕 0.6.3 외상은 정확히 «普通支付»(🔴 «免密支付» 거절)
-        const text = normalizeText(desc.text)
-        if (text.includes(C.TEXT.creditNoPasswordText)) return false
-        if (W === C.CREDIT_CHANNEL) return text === C.TEXT.creditPayButtonText
-        return text.includes(C.TEXT.payButtonText) && !text.includes('组合')
+        // 글자가 «立即付款» 이어야 함(조합결제면 «组合付款») · 🆕 0.6.3 외상은 «普通支付»(🔴 «免密支付» 거절) · 🆕 0.7.3 외상도 «立即付款» 허용
+        return isPayButtonText(desc.text, W)
       }
       default:
         return false
