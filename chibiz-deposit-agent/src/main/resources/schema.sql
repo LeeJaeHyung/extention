@@ -91,3 +91,20 @@ CREATE TABLE IF NOT EXISTS agent_log (
   KEY idx_at (logged_at),
   KEY idx_level (level, logged_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 에이전트 동작 로그';
+
+-- AI 검토(J 2026-11-04): 이름만 다른 신청×입금 쌍을 서버(제미나이)에 보내 받은 판정. 같은 쌍은 한 번만 보낸다. MCP list_reviews 로 조회.
+CREATE TABLE IF NOT EXISTS ai_review (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  site_code       VARCHAR(20)  NOT NULL,
+  claim_id        VARCHAR(40)  NOT NULL,
+  bank_deposit_id BIGINT       NOT NULL,
+  claim_names     VARCHAR(500) NULL     COMMENT '신청의 입금자명 후보',
+  bank_memo       VARCHAR(100) NULL     COMMENT '통장 적요',
+  amount          BIGINT       NULL,
+  verdict         VARCHAR(10)  NULL     COMMENT 'LIKELY · UNSURE · UNLIKELY · ERROR',
+  confidence      INT          NULL,
+  reason          VARCHAR(500) NULL,
+  sent_at         DATETIME     NOT NULL,
+  UNIQUE KEY uk_pair (site_code, claim_id, bank_deposit_id),
+  KEY idx_sent (sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 대조 AI 검토 결과';

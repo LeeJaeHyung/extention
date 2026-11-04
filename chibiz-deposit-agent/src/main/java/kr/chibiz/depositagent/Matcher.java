@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,6 +71,143 @@ public class Matcher {
         AgentLog.info("신청 큐 대조 켜짐 " + sites().stream().map(s -> s.code).toList() + " · 폴링 " + cfg.matching.pollSec + "초 · 대조 " + cfg.matching.matchMin + "분");
         exec.scheduleWithFixedDelay(this::safeTick, 3, Math.max(10, cfg.matching.pollSec), TimeUnit.SECONDS);
         exec.scheduleWithFixedDelay(() -> safeMatch("schedule"), 60, Math.max(1, cfg.matching.matchMin) * 60L, TimeUnit.SECONDS);
+        if (cfg.matching.reviewMin > 0) {
+            AgentLog.info("AI 검토 켜짐 · " + cfg.matching.reviewMin + "분마다 이름만 다른 신청×입금 쌍을 사이트로 보내 판별 요청");
+            exec.scheduleWithFixedDelay(() -> safeReview("schedule"), 180, cfg.matching.reviewMin * 60L, TimeUnit.SECONDS);
+        }
+    }
+
+    private void safeReview(String reason) {
+        try {
+            runReview(reason);
+        } catch (Exception e) {
+            AgentLog.warn("AI 검토 오류(" + reason + "): " + e.getMessage());
+        }
+    }
+
+    /**
+     * AI 검토(J 2026-11-04): 대기 신청마다 «계좌·금액·시각은 맞는데 입금자명만 다른» 미승인 입금을 골라 사이트
+     * POST /deposit/claims/agent/review 로 보낸다. 서버가 제미나이에 같은 입금자인지 묻고 결과를 메일로 보고하며 여기엔 판정을 돌려준다.
+     * 같은 (신청, 입금) 쌍은 ai_review 에 남겨 한 번만 보낸다. 🔴 적립·승인은 하지 않는다 — 사람이 판단한다.
+     */
+    public Map<String, Object> runReview(String reason) throws Exception {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        List<Map<String, Object>> claims = db.query("SELECT * FROM deposit_claim WHERE status = 'PENDING' ORDER BY requested_at, id");
+        summary.put("pending", claims.size());
+        if (claims.isEmpty()) {
+            summary.put("pairs", 0);
+            return summary;
+        }
+        List<Map<String, Object>> deps = db.query(
+                "SELECT * FROM bank_deposit WHERE approved = 0 AND deposit_amount > 0 AND tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date, tx_time, id",
+                cfg.matching.lookbackDays + cfg.matching.beforeRequestDays);
+        Map<String, List<Map<String, Object>>> bySite = new LinkedHashMap<>();
+        int skipped = 0;
+        for (Map<String, Object> c : claims) {
+            String site = Db.str(c.get("site_code"));
+            List<String> names = new ArrayList<>();
+            for (String n : Db.str(c.get("depositor_names")).split(",")) {
+                String nn = normName(n);
+                if (!nn.isEmpty()) {
+                    names.add(nn);
+                }
+            }
+            LocalDateTime earliest = parse(Db.str(c.get("requested_at")).replace(' ', 'T')).minusDays(cfg.matching.beforeRequestDays);
+            String claimAcct = Db.str(c.get("account")).replaceAll("[^0-9]", "");
+            String wantAcct = claimAcct.isEmpty() ? siteAccount(site) : claimAcct;
+            for (Map<String, Object> d : deps) {
+                if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
+                    continue;
+                }
+                if (!amountMatches(c, Db.toLong(d.get("deposit_amount")))) {
+                    continue;
+                }
+                if (txAt(d).isBefore(earliest)) {
+                    continue;
+                }
+                if (nameMatches(names, normName(Db.str(d.get("memo"))))) {
+                    continue; // 이름까지 같으면 정규 대조가 처리한다
+                }
+                List<Map<String, Object>> seen = db.query("SELECT id FROM ai_review WHERE site_code = ? AND claim_id = ? AND bank_deposit_id = ?",
+                        site, Db.str(c.get("claim_id")), d.get("id"));
+                if (!seen.isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+                Map<String, Object> pair = new LinkedHashMap<>();
+                Map<String, Object> claim = new LinkedHashMap<>();
+                claim.put("claimId", Db.str(c.get("claim_id")));
+                claim.put("claimType", Db.str(c.get("claim_type")));
+                claim.put("refId", Db.str(c.get("ref_id")));
+                claim.put("memberId", Db.str(c.get("member_id")));
+                claim.put("memberName", Db.str(c.get("member_name")));
+                claim.put("depositorNames", Db.str(c.get("depositor_names")));
+                claim.put("amount", Db.toLong(c.get("amount")));
+                claim.put("amounts", Db.str(c.get("amounts")));
+                claim.put("account", wantAcct);
+                claim.put("requestedAt", Db.str(c.get("requested_at")));
+                Map<String, Object> dep = new LinkedHashMap<>();
+                dep.put("id", Db.toLong(d.get("id")));
+                dep.put("txDate", Db.str(d.get("tx_date")));
+                dep.put("txTime", Db.str(d.get("tx_time")));
+                dep.put("memo", Db.str(d.get("memo")));
+                dep.put("kind", Db.str(d.get("kind")));
+                dep.put("amount", Db.toLong(d.get("deposit_amount")));
+                dep.put("account", Db.str(d.get("account_masked")));
+                pair.put("claim", claim);
+                pair.put("deposit", dep);
+                bySite.computeIfAbsent(site, k -> new ArrayList<>()).add(pair);
+            }
+        }
+        int total = bySite.values().stream().mapToInt(List::size).sum();
+        summary.put("pairs", total);
+        summary.put("alreadySent", skipped);
+        if (total == 0) {
+            AgentLog.info("AI 검토(" + reason + "): 대기 " + claims.size() + "건 · 새로 보낼 이름 불일치 쌍 없음(이미 보낸 " + skipped + ")");
+            return summary;
+        }
+        for (Config.Site site : sites()) {
+            List<Map<String, Object>> pairs = bySite.get(site.code);
+            if (pairs == null || pairs.isEmpty()) {
+                continue;
+            }
+            LocalDateTime now = LocalDateTime.now();
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("reason", reason);
+            body.put("pairs", pairs);
+            SiteClient.Reply r = client.post(site, "/deposit/claims/agent/review", body);
+            if (r.status() != 200) {
+                AgentLog.warn("AI 검토 " + site.code + " " + pairs.size() + "쌍 → HTTP " + r.status() + " " + (r.raw() == null ? "" : r.raw().substring(0, Math.min(200, r.raw().length()))));
+                summary.put(site.code, "HTTP " + r.status());
+                continue;
+            }
+            Map<String, Map<String, Object>> results = new HashMap<>();
+            if (r.body() != null) {
+                for (var n : r.body().path("data").path("results")) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("verdict", n.path("verdict").asText(""));
+                    m.put("confidence", n.path("confidence").asInt(0));
+                    m.put("reason", n.path("reason").asText(""));
+                    results.put(n.path("claimId").asText("") + "|" + n.path("depositId").asLong(0), m);
+                }
+            }
+            int likely = 0;
+            for (Map<String, Object> pair : pairs) {
+                @SuppressWarnings("unchecked") Map<String, Object> c = (Map<String, Object>) pair.get("claim");
+                @SuppressWarnings("unchecked") Map<String, Object> d = (Map<String, Object>) pair.get("deposit");
+                Map<String, Object> res = results.get(c.get("claimId") + "|" + d.get("id"));
+                String verdict = res == null ? "ERROR" : Db.str(res.get("verdict"));
+                if ("LIKELY".equals(verdict)) {
+                    likely++;
+                }
+                db.update("INSERT IGNORE INTO ai_review (site_code, claim_id, bank_deposit_id, claim_names, bank_memo, amount, verdict, confidence, reason, sent_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        site.code, c.get("claimId"), d.get("id"), c.get("depositorNames"), d.get("memo"), d.get("amount"), verdict,
+                        res == null ? null : res.get("confidence"), res == null ? "서버 응답에 판정 없음" : Db.str(res.get("reason")), now);
+            }
+            AgentLog.info("AI 검토 " + site.code + " " + pairs.size() + "쌍 보냄 → 매칭 가능 " + likely + "건(서버가 메일 보고)");
+            summary.put(site.code, Map.of("sent", pairs.size(), "likely", likely));
+        }
+        return summary;
     }
 
     /**

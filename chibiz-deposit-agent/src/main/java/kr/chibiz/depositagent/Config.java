@@ -71,6 +71,11 @@ public class Config {
         public int alertAfterFails = 3;
         /** 마지막 수집 성공 뒤 이 분이 지나도록 아무 실행이 없으면(탭 닫힘·절전) 보고 */
         public int alertNoRunMinutes = 45;
+        /**
+         * AI 검토 주기(분 · J 2026-11-04). 금액·계좌·시각은 맞는데 입금자명만 다른 «대기 신청 × 미승인 입금» 쌍을 사이트로 보내
+         * 서버가 제미나이에 같은 입금자인지 판별시키고 결과를 메일로 보고한다. 자동 적립은 하지 않는다. 0 = 끔.
+         */
+        public int reviewMin = 60;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

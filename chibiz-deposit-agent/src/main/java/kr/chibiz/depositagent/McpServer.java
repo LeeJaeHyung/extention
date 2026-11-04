@@ -164,6 +164,8 @@ public class McpServer {
         arr.add(tool("find_candidates", "특정 신청이 왜 안 맞았는지: 같은 이름(정규화)·같은 금액 범위·시각 조건별로 후보 입금과 탈락 사유를 보여준다.",
                 obj("site", "string", "사이트 코드", "claim_id", "string", "사이트 쪽 claimId")));
         arr.add(tool("match_now", "지금 바로 폴링→대조→콜백을 1회 실행(비동기). 결과는 잠시 뒤 list_matches 로 확인.", obj()));
+        arr.add(tool("list_reviews", "AI 검토 결과(이름만 다른 신청×입금 쌍에 대한 제미나이 판정 · 자동 적립 없음). 최신순.", obj("limit", "integer", "최대 건수(기본 100)")));
+        arr.add(tool("review_now", "AI 검토를 지금 1회 실행(동기) — 새 쌍이 있으면 서버로 보내 판정·메일 보고. 요약을 돌려준다.", obj()));
         arr.add(tool("list_logs", "에이전트 동작 로그(수집 저장·대조·매칭·콜백·오류). 시각 범위·등급·문구로 거른다. 최신순.",
                 obj("since", "string", "이 시각 이후 (yyyy-MM-dd HH:mm, 기본 24시간 전)", "until", "string", "이 시각 이전 (yyyy-MM-dd HH:mm)", "level", "string", "INFO | WARN", "contains", "string", "메시지 부분 일치", "limit", "integer", "최대 건수(기본 200, 최대 500)")));
         return arr;
@@ -280,6 +282,12 @@ public class McpServer {
                 data = db.query(sql.toString(), args.toArray());
                 break;
             }
+            case "list_reviews":
+                data = db.query("SELECT site_code, claim_id, bank_deposit_id, claim_names, bank_memo, amount, verdict, confidence, reason, sent_at FROM ai_review ORDER BY id DESC LIMIT " + limit(a, 100));
+                break;
+            case "review_now":
+                data = matcher.runReview("mcp");
+                break;
             default:
                 throw new IllegalArgumentException("unknown tool " + name);
         }

@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 
 /**
  * 익스텐션이 부르는 로컬 HTTP (127.0.0.1 만).
- *  POST /deposits · POST /runs · GET /health · GET /summary · GET /claims?status= · GET /matches · POST /match-now
+ *  POST /deposits · POST /runs · GET /health · GET /summary · GET /claims?status= · GET /matches · POST /match-now · POST /review-now · GET /reviews?minutes=
  */
 public class HttpApi {
     private static final ObjectMapper M = new ObjectMapper();
@@ -126,6 +126,30 @@ public class HttpApi {
             if ("POST".equals(method) && "/match-now".equals(path)) {
                 matcher.runNow();
                 send(ex, 200, Map.of("ok", true));
+                return;
+            }
+            // AI 검토(J 2026-11-04): 시간별 점검 메일(수집 PC 예약 작업)이 정시에 부른다 — 동기 실행 뒤 요약, 결과 목록은 /reviews
+            if ("POST".equals(method) && "/review-now".equals(path)) {
+                send(ex, 200, matcher.runReview("http"));
+                return;
+            }
+            if ("GET".equals(method) && "/reviews".equals(path)) {
+                int minutes = 0;
+                String rq = ex.getRequestURI().getQuery();
+                if (rq != null) {
+                    for (String kv : rq.split("&")) {
+                        if (kv.startsWith("minutes=")) {
+                            try {
+                                minutes = Integer.parseInt(kv.substring(8));
+                            } catch (NumberFormatException ignored) {
+                                // 기본 0 = 전체(최근 200건)
+                            }
+                        }
+                    }
+                }
+                send(ex, 200, minutes > 0
+                        ? db.query("SELECT site_code, claim_id, bank_deposit_id, claim_names, bank_memo, amount, verdict, confidence, reason, sent_at FROM ai_review WHERE sent_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id DESC LIMIT 200", minutes)
+                        : db.query("SELECT site_code, claim_id, bank_deposit_id, claim_names, bank_memo, amount, verdict, confidence, reason, sent_at FROM ai_review ORDER BY id DESC LIMIT 200"));
                 return;
             }
             send(ex, 404, Map.of("ok", false, "reason", "not found"));
