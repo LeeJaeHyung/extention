@@ -347,12 +347,17 @@ public class Matcher {
                 continue;
             }
             Set<String> seen = new HashSet<>();
+            Set<String> before = new HashSet<>(db.pendingClaimIds(site.code));
+            boolean fresh = false;
             for (JsonNode c : r.body().get("data")) {
                 String claimId = c.path("claimId").asText();
                 if (claimId.isEmpty()) {
                     continue;
                 }
                 seen.add(claimId);
+                if (!before.contains(claimId)) {
+                    fresh = true;
+                }
                 List<String> names = new ArrayList<>();
                 if (c.path("depositorNames").isArray()) {
                     for (JsonNode n : c.get("depositorNames")) {
@@ -371,6 +376,10 @@ public class Matcher {
                 if (!seen.contains(id)) {
                     db.cancelClaim(site.code, id);
                 }
+            }
+            if (fresh) {
+                // 새 신청이 들어왔으면 바로 대조(J 2026-11-04) — 이미 수집된 입금이 새 신청을 기다리던 경우(이커머스트 16:28 입금 → 16:28 신청 → 10분 주기 전에 관리자 수동 적립)
+                safeMatch("new-claim");
             }
         }
     }
