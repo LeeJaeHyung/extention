@@ -204,7 +204,7 @@ public class McpServer {
                 String from = text(a, "from", java.time.LocalDate.now().minusDays(7).toString());
                 String to = text(a, "to", java.time.LocalDate.now().toString());
                 List<Object> args = new ArrayList<>(List.of(from, to));
-                StringBuilder sql = new StringBuilder("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, withdraw_amount, balance, branch, account_masked, approved, approved_claim_id, approved_at, remit_updated, remit_updated_at, fetched_at FROM bank_deposit WHERE tx_date BETWEEN ? AND ?");
+                StringBuilder sql = new StringBuilder("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, withdraw_amount, balance, branch, account_masked, approved, approved_by, approved_claim_id, approved_at, remit_updated, remit_updated_at, fetched_at FROM bank_deposit WHERE tx_date BETWEEN ? AND ?");
                 if (!text(a, "memo", "").isEmpty()) {
                     sql.append(" AND memo LIKE ?");
                     args.add("%" + text(a, "memo", "") + "%");
@@ -318,7 +318,7 @@ public class McpServer {
         long tol = Math.round(amount * tolPct / 100.0);
         String requestedAt = Db.str(c.get("requested_at"));
         String wantAcct = Db.str(c.get("account")).replaceAll("[^0-9]", "");
-        List<Map<String, Object>> deps = db.query("SELECT id, tx_date, tx_time, memo, deposit_amount, account_masked, approved, approved_claim_id FROM bank_deposit WHERE tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date DESC, tx_time DESC", cfg.matching.lookbackDays + 20);
+        List<Map<String, Object>> deps = db.query("SELECT id, tx_date, tx_time, memo, deposit_amount, account_masked, approved, approved_by, approved_claim_id FROM bank_deposit WHERE tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date DESC, tx_time DESC", cfg.matching.lookbackDays + 20);
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> d : deps) {
             boolean nameOk = Matcher.nameMatches(names, Matcher.normName(Db.str(d.get("memo"))));
@@ -342,7 +342,7 @@ public class McpServer {
                 why.add("입금이 너무 이름(" + txAt + " < 신청−" + cfg.matching.beforeRequestDays + "일 " + earliest + ")");
             }
             if (Db.toLong(d.get("approved")) == 1) {
-                why.add("이미 다른 신청(" + d.get("approved_claim_id") + ")에 승인됨");
+                why.add("이미 다른 신청(" + d.get("approved_claim_id") + ")에 승인됨" + ("ADMIN".equals(Db.str(d.get("approved_by"))) ? " · 관리자 영수증 적립" : ""));
             }
             Map<String, Object> row = new java.util.LinkedHashMap<>(d);
             row.put("would_match", why.isEmpty());

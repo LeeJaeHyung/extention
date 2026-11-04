@@ -74,6 +74,11 @@ public class Db {
             if (!hasColumn(conn, "bank_deposit", "remit_updated")) {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN remit_updated TINYINT NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)' AFTER approved_at, ADD COLUMN remit_updated_at DATETIME NULL AFTER remit_updated");
             }
+            // 0.2.12: 승인 구분(AUTO 에이전트 매칭 · ADMIN 관리자 영수증 적립) — 예전 승인 행은 전부 자동 매칭
+            if (!hasColumn(conn, "bank_deposit", "approved_by")) {
+                st.execute("ALTER TABLE bank_deposit ADD COLUMN approved_by VARCHAR(20) NULL COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립' AFTER approved_at");
+                st.execute("UPDATE bank_deposit SET approved_by = 'AUTO' WHERE approved = 1 AND approved_by IS NULL");
+            }
             if (!hasColumn(conn, "deposit_claim", "amounts")) {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN amounts VARCHAR(600) NULL COMMENT '맞다고 볼 금액 목록(쉼표)' AFTER account");
             }

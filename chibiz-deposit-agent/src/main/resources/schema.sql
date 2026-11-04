@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS bank_deposit (
   approved        TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 신청과 매칭됨(승인)',
   approved_claim_id BIGINT     NULL     COMMENT 'deposit_claim.id',
   approved_at     DATETIME     NULL,
+  approved_by     VARCHAR(20)  NULL     COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립(서버 /agent/credited 로 표시)',
   remit_updated   TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)',
   remit_updated_at DATETIME    NULL,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

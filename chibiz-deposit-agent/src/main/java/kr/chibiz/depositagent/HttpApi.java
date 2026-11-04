@@ -162,7 +162,7 @@ public class HttpApi {
     public Map<String, Object> summary() throws Exception {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("today", first(db.query("SELECT COUNT(*) n, IFNULL(SUM(deposit_amount),0) amount FROM bank_deposit WHERE tx_date = CURDATE()")));
-        out.put("total", first(db.query("SELECT COUNT(*) n, IFNULL(SUM(approved),0) approved, MIN(fetched_at) first_at, MAX(fetched_at) last_at FROM bank_deposit")));
+        out.put("total", first(db.query("SELECT COUNT(*) n, IFNULL(SUM(approved),0) approved, IFNULL(SUM(approved_by = 'ADMIN'),0) approved_admin, MIN(fetched_at) first_at, MAX(fetched_at) last_at FROM bank_deposit")));
         List<Map<String, Object>> runs = db.query("SELECT run_at, ok, rows_read, inserted, error FROM collect_run ORDER BY id DESC LIMIT 10");
         out.put("runs", runs);
         out.put("stat", first(db.query("SELECT IFNULL(SUM(ok),0) ok_runs, IFNULL(SUM(1-ok),0) fail_runs, MIN(run_at) first_run, MAX(run_at) last_run, MAX(CASE WHEN ok=1 THEN run_at END) last_ok FROM collect_run")));

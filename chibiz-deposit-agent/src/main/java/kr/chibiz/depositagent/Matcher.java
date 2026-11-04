@@ -465,6 +465,12 @@ public class Matcher {
             return;
         }
         try {
+            // 관리자가 영수증으로 직접 적립한 건의 입금을 먼저 승인(ADMIN) 표시 — 그 입금이 아래 대조에서 다른 신청에 쓰이지 않게
+            try {
+                markManualCredits();
+            } catch (Exception e) {
+                AgentLog.warn("관리자 적립 입금 표시 오류: " + e.getMessage());
+            }
             List<Map<String, Object>> claims = db.query("SELECT * FROM deposit_claim WHERE status = 'PENDING' ORDER BY requested_at, id");
             if (claims.isEmpty()) {
                 lastMatchAt = LocalDateTime.now();
@@ -512,7 +518,7 @@ public class Matcher {
                     continue;
                 }
                 used.add(hit.get("id"));
-                db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW() WHERE id = ? AND approved = 0", c.get("id"), hit.get("id"));
+                db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'AUTO' WHERE id = ? AND approved = 0", c.get("id"), hit.get("id"));
                 db.update("UPDATE deposit_claim SET status = 'MATCHED', bank_deposit_id = ?, matched_depositor = ?, matched_amount = ?, matched_tx_date = ?, matched_tx_time = ?, matched_at = NOW(), callback_status = 'NONE', updated_at = NOW() WHERE id = ? AND status = 'PENDING'",
                         hit.get("id"), hit.get("memo"), hit.get("deposit_amount"), hit.get("tx_date"), hit.get("tx_time"), c.get("id"));
                 matched++;
@@ -525,6 +531,87 @@ public class Matcher {
         } finally {
             matching.set(false);
         }
+    }
+
+    /**
+     * 관리자 영수증 적립 입금 표시(J 2026-11-04). 사이트 GET /deposit/claims/agent/credited 가 주는 «관리자가 직접 적립한 인보이스의 신청» 마다
+     * 계좌·금액·입금자명이 맞고 신청−beforeRequestDays ~ 적립 시각 사이에 들어온 미승인 입금 하나를 approved=1·approved_by=ADMIN 으로 둔다.
+     * 그러지 않으면 그 입금이 13일 동안 미승인으로 남아 같은 이름·금액의 다음 신청에 입금 없이 자동 적립될 수 있다. 서버에는 아무것도 보내지 않는다.
+     */
+    public int markManualCredits() throws Exception {
+        int marked = 0;
+        for (Config.Site site : sites()) {
+            SiteClient.Reply r;
+            try {
+                r = client.get(site, "/deposit/claims/agent/credited?days=" + (cfg.matching.lookbackDays + cfg.matching.beforeRequestDays));
+            } catch (Exception e) {
+                AgentLog.warn("관리자 적립 목록 조회 실패 " + site.code + " " + e.getMessage());
+                continue;
+            }
+            if (r.status() != 200 || r.body() == null || !r.body().path("data").isArray()) {
+                AgentLog.warn("관리자 적립 목록 조회 실패 " + site.code + " " + r.status() + " " + Db.left(r.raw(), 120));
+                continue;
+            }
+            List<Map<String, Object>> deps = db.query(
+                    "SELECT * FROM bank_deposit WHERE approved = 0 AND deposit_amount > 0 AND tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date, tx_time, id",
+                    cfg.matching.lookbackDays + cfg.matching.beforeRequestDays);
+            Set<Object> used = new HashSet<>();
+            for (JsonNode c : r.body().path("data")) {
+                String claimId = c.path("claimId").asText("");
+                if (claimId.isEmpty() || !db.query("SELECT id FROM bank_deposit WHERE approved_claim_id = ?", Long.parseLong(claimId)).isEmpty()) {
+                    continue; // 이 신청으로 이미 승인된 입금이 있음(자동 매칭 또는 전에 표시함)
+                }
+                List<String> names = new ArrayList<>();
+                for (JsonNode n : c.path("depositorNames")) {
+                    String nn = normName(n.asText(""));
+                    if (!nn.isEmpty()) {
+                        names.add(nn);
+                    }
+                }
+                Set<Long> amounts = new HashSet<>();
+                for (JsonNode a : c.path("amounts")) {
+                    amounts.add(a.asLong());
+                }
+                LocalDateTime requestedAt = parse(c.path("requestedAt").asText(null));
+                LocalDateTime creditedAt = parse(c.path("creditedAt").asText(null));
+                LocalDateTime earliest = requestedAt.minusDays(cfg.matching.beforeRequestDays);
+                String claimAcct = c.path("account").asText("").replaceAll("[^0-9]", "");
+                String wantAcct = claimAcct.isEmpty() ? siteAccount(site.code) : claimAcct;
+                Map<String, Object> hit = null;
+                for (Map<String, Object> d : deps) {
+                    if (used.contains(d.get("id"))) {
+                        continue;
+                    }
+                    if (!wantAcct.isEmpty() && !Db.str(d.get("account_masked")).endsWith(wantAcct)) {
+                        continue;
+                    }
+                    if (!amounts.contains(Db.toLong(d.get("deposit_amount")))) {
+                        continue;
+                    }
+                    if (!nameMatches(names, normName(Db.str(d.get("memo"))))) {
+                        continue;
+                    }
+                    LocalDateTime at = txAt(d);
+                    if (at.isBefore(earliest) || at.isAfter(creditedAt)) {
+                        continue;
+                    }
+                    hit = d;
+                    break;
+                }
+                if (hit == null) {
+                    continue;
+                }
+                int n = db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'ADMIN' WHERE id = ? AND approved = 0",
+                        Long.parseLong(claimId), hit.get("id"));
+                if (n > 0) {
+                    used.add(hit.get("id"));
+                    marked++;
+                    AgentLog.info("관리자 적립 입금 표시 " + site.code + " 인보이스 " + c.path("invoiceId").asText("") + " 신청 " + claimId + " " + c.path("claimType").asText("")
+                            + " ← " + hit.get("memo") + " " + hit.get("deposit_amount") + "원 " + hit.get("tx_date") + " " + hit.get("tx_time"));
+                }
+            }
+        }
+        return marked;
     }
 
     /** 사이트 설정의 계좌 끝4자리(없으면 빈 문자열) */
