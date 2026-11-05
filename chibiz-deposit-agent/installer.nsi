@@ -16,10 +16,10 @@ BrandingText "chibiz"
 !define MUI_UNICON "${ICONFILE}"
 !endif
 
-VIProductVersion "0.2.13.0"
+VIProductVersion "0.2.14.0"
 VIAddVersionKey "ProductName" "차이비즈 입금 에이전트"
 VIAddVersionKey "FileDescription" "차이비즈 입금 에이전트 설치"
-VIAddVersionKey "FileVersion" "0.2.13"
+VIAddVersionKey "FileVersion" "0.2.14"
 VIAddVersionKey "CompanyName" "chibiz"
 VIAddVersionKey "LegalCopyright" "chibiz"
 
@@ -61,7 +61,7 @@ Section "프로그램 (필수)" SEC_APP
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositAgent" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositAgent" "DisplayIcon" "$INSTDIR\ChibizDepositAgent.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositAgent" "Publisher" "chibiz"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositAgent" "DisplayVersion" "0.2.13"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositAgent" "DisplayVersion" "0.2.14"
   CreateDirectory "$SMPROGRAMS\차이비즈"
   CreateShortCut "$SMPROGRAMS\차이비즈\차이비즈 입금 에이전트.lnk" "$INSTDIR\ChibizDepositAgent.exe"
   CreateShortCut "$SMPROGRAMS\차이비즈\설정 파일(config.json).lnk" "notepad.exe" '"$INSTDIR\config.json"'

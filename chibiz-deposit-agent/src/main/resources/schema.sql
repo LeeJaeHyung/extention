@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS bank_deposit (
   approved_claim_id BIGINT     NULL     COMMENT 'deposit_claim.id',
   approved_at     DATETIME     NULL,
   approved_by     VARCHAR(20)  NULL     COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립(서버 /agent/credited 로 표시) · MANUAL=입금 처리 확인 앱에서 사람이 처리',
-  approved_operator VARCHAR(50) NULL    COMMENT '처리한 사람(입금 처리 확인 앱의 슈퍼아이디)',
+  approved_operator VARCHAR(50) NULL    COMMENT '처리자: 에이전트 자동 매칭·관리자 적립 표시는 Chibiz · 입금 처리 확인 앱에서는 SuperID(플랫폼 계정 아이디)',
   approved_note   VARCHAR(200) NULL     COMMENT '처리 메모',
   remit_updated   TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)',
   remit_updated_at DATETIME    NULL,

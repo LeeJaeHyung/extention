@@ -83,6 +83,8 @@ public class Db {
             if (!hasColumn(conn, "bank_deposit", "approved_operator")) {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN approved_operator VARCHAR(50) NULL COMMENT '처리한 사람(입금 처리 확인 앱의 슈퍼아이디)' AFTER approved_by, ADD COLUMN approved_note VARCHAR(200) NULL COMMENT '처리 메모' AFTER approved_operator");
             }
+            // 0.2.14 (J 2026-11-05): 에이전트가 승인한 입금의 처리자는 'Chibiz' — 예전 행도 채운다
+            st.execute("UPDATE bank_deposit SET approved_operator = 'Chibiz' WHERE approved = 1 AND approved_by IN ('AUTO','ADMIN') AND approved_operator IS NULL");
             if (!hasColumn(conn, "deposit_claim", "amounts")) {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN amounts VARCHAR(600) NULL COMMENT '맞다고 볼 금액 목록(쉼표)' AFTER account");
             }

@@ -206,7 +206,7 @@ public class HttpApi {
                 String operator = Db.left(Db.str(body.get("operator")).trim(), 50);
                 String note = Db.left(Db.str(body.get("note")).trim(), 200);
                 if (operator.isEmpty()) {
-                    send(ex, 400, Map.of("ok", false, "reason", "operator(슈퍼아이디) 없음"));
+                    send(ex, 400, Map.of("ok", false, "reason", "operator(SuperID) 없음"));
                     return;
                 }
                 List<Map<String, Object>> rows = db.query("SELECT id, memo, deposit_amount, approved, approved_by FROM bank_deposit WHERE id = ?", id);

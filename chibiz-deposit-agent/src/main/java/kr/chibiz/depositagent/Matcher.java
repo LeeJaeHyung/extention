@@ -527,7 +527,7 @@ public class Matcher {
                     continue;
                 }
                 used.add(hit.get("id"));
-                db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'AUTO' WHERE id = ? AND approved = 0", c.get("id"), hit.get("id"));
+                db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'AUTO', approved_operator = 'Chibiz' WHERE id = ? AND approved = 0", c.get("id"), hit.get("id"));
                 db.update("UPDATE deposit_claim SET status = 'MATCHED', bank_deposit_id = ?, matched_depositor = ?, matched_amount = ?, matched_tx_date = ?, matched_tx_time = ?, matched_at = NOW(), callback_status = 'NONE', updated_at = NOW() WHERE id = ? AND status = 'PENDING'",
                         hit.get("id"), hit.get("memo"), hit.get("deposit_amount"), hit.get("tx_date"), hit.get("tx_time"), c.get("id"));
                 matched++;
@@ -610,7 +610,7 @@ public class Matcher {
                 if (hit == null) {
                     continue;
                 }
-                int n = db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'ADMIN' WHERE id = ? AND approved = 0",
+                int n = db.update("UPDATE bank_deposit SET approved = 1, approved_claim_id = ?, approved_at = NOW(), approved_by = 'ADMIN', approved_operator = 'Chibiz' WHERE id = ? AND approved = 0",
                         Long.parseLong(claimId), hit.get("id"));
                 if (n > 0) {
                     used.add(hit.get("id"));
