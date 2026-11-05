@@ -5,6 +5,7 @@
 | `chibiz-worldpay-extension/` | 1688 월드페이·외상 자동결제 크롬 익스텐션 0.7.0 | 결제 PC |
 | `chibiz-deposit-collector-ext/` | 하나은행 빠른조회 입금 수집 크롬 익스텐션 0.1.0 | 수집 PC |
 | `chibiz-deposit-agent/` | 입금 에이전트 (Java 17 · JavaFX 창 · 로컬 MySQL · 사이트 신청 큐 대조) | 수집 PC |
+| `chibiz-deposit-confirm/` | 입금 처리 확인 (Java 17 · JavaFX 창 · 같은 PC 의 에이전트 HTTP 127.0.0.1:18080 로 미처리 입금을 보고 사람이 처리·취소 · 2026-11-05) | 수집 PC |
 
 서버 쪽 규격: OP-chibiz `docs/deposit-claim-agent-spec.md`.
 

@@ -2,7 +2,7 @@
  * 🆕 0.7.0 하나은행 빠른조회 → 입금 내역 수집 (J 지시 2026-10-29)
  *
  * 흐름: 관리자가 계좌번호·비밀번호·사업자번호를 직접 넣고 한 번 조회 → 이 패널의 [실행] →
- *       그 뒤 BANK.intervalMinMs~intervalMaxMs(10~15분 임의) 간격으로 화면의 조회 함수(pbk.quickService.acctInquiry.submitInquiry)를 다시 불러
+ *       그 뒤 BANK.intervalMinMs~intervalMaxMs(8~10분 임의 · 2026-11-05 전엔 10~15분) 간격으로 화면의 조회 함수(pbk.quickService.acctInquiry.submitInquiry)를 다시 불러
  *       결과 표를 읽고 background(BANK_DEPOSITS) → 로컬 에이전트(http://127.0.0.1:18080/deposits) → MySQL.
  *
  * 실측(2026-10-29): 폼을 그대로 HTTP 재전송하면 WEBK00038 로 거절되지만, 화면 함수로 다시 제출하면 암호화 값이
@@ -181,7 +181,7 @@
     return changed.length > 0
   }
 
-  /** 다음 실행까지 10~15분 사이 임의 시간(J 지시 2026-10-29: 일정한 간격으로 두지 않음) */
+  /** 다음 실행까지 intervalMinMs~intervalMaxMs(8~10분) 사이 임의 시간(J 지시 2026-10-29: 일정한 간격으로 두지 않음 · 2026-11-05 8~10분으로 단축) */
   function nextDelayMs() {
     const span = B.intervalMaxMs - B.intervalMinMs
     return B.intervalMinMs + Math.floor(Math.random() * (span + 1))

@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS bank_deposit (
   approved        TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 신청과 매칭됨(승인)',
   approved_claim_id BIGINT     NULL     COMMENT 'deposit_claim.id',
   approved_at     DATETIME     NULL,
-  approved_by     VARCHAR(20)  NULL     COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립(서버 /agent/credited 로 표시)',
+  approved_by     VARCHAR(20)  NULL     COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립(서버 /agent/credited 로 표시) · MANUAL=입금 처리 확인 앱에서 사람이 처리',
+  approved_operator VARCHAR(50) NULL    COMMENT '처리한 사람(입금 처리 확인 앱의 슈퍼아이디)',
+  approved_note   VARCHAR(200) NULL     COMMENT '처리 메모',
   remit_updated   TINYINT      NOT NULL DEFAULT 0 COMMENT '1 = 서버 송금내역 업데이트 확인(콜백 200)',
   remit_updated_at DATETIME    NULL,
   created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -109,3 +111,17 @@ CREATE TABLE IF NOT EXISTS ai_review (
   UNIQUE KEY uk_pair (site_code, claim_id, bank_deposit_id),
   KEY idx_sent (sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 대조 AI 검토 결과';
+
+-- 입금 처리 확인 앱(J 2026-11-05): 사람이 미처리 입금을 «처리»·«취소»한 기록. bank_deposit.approved 와 별도로 남겨 추적한다.
+CREATE TABLE IF NOT EXISTS deposit_action (
+  id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+  bank_deposit_id BIGINT       NOT NULL,
+  action          VARCHAR(10)  NOT NULL COMMENT 'PROCESS · CANCEL',
+  operator        VARCHAR(50)  NOT NULL COMMENT '슈퍼아이디',
+  note            VARCHAR(200) NULL,
+  memo            VARCHAR(100) NULL     COMMENT '그때의 적요',
+  amount          BIGINT       NULL,
+  acted_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_dep (bank_deposit_id),
+  KEY idx_at (acted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='입금 처리 확인 앱 처리·취소 기록';

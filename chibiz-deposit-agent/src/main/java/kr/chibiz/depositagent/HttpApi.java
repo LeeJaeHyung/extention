@@ -19,6 +19,7 @@ import java.util.concurrent.Executors;
 /**
  * 익스텐션이 부르는 로컬 HTTP (127.0.0.1 만).
  *  POST /deposits · POST /runs · GET /health · GET /summary · GET /claims?status= · GET /matches · POST /match-now · POST /review-now · GET /reviews?minutes=
+ *  입금 처리 확인 앱(J 2026-11-05): GET /deposits/unprocessed?days= · GET /deposits/processed?days= · POST /deposits/{id}/process · POST /deposits/{id}/cancel · GET /deposits/actions?days=
  */
 public class HttpApi {
     private static final ObjectMapper M = new ObjectMapper();
@@ -152,11 +153,108 @@ public class HttpApi {
                         : db.query("SELECT site_code, claim_id, bank_deposit_id, claim_names, bank_memo, amount, verdict, confidence, reason, sent_at FROM ai_review ORDER BY id DESC LIMIT 200"));
                 return;
             }
+            if (path.startsWith("/deposits/")) {
+                handleDeposits(ex, method, path);
+                return;
+            }
             send(ex, 404, Map.of("ok", false, "reason", "not found"));
         } catch (Exception e) {
             AgentLog.warn("HTTP 오류 " + method + " " + path + " " + e.getMessage());
             send(ex, 500, Map.of("ok", false, "reason", String.valueOf(e.getMessage())));
         }
+    }
+
+    /** 입금 처리 확인 앱 — 미처리 목록 · 처리 내역 · 처리(MANUAL 승인) · 취소(사람이 처리한 것만). 자동 매칭(AUTO)·관리자 영수증 적립(ADMIN) 은 여기서 취소하지 않는다 */
+    private void handleDeposits(HttpExchange ex, String method, String path) throws Exception {
+        String q = ex.getRequestURI().getQuery();
+        int days = 14;
+        if (q != null) {
+            for (String kv : q.split("&")) {
+                if (kv.startsWith("days=")) {
+                    try {
+                        days = Math.max(1, Math.min(90, Integer.parseInt(kv.substring(5))));
+                    } catch (NumberFormatException ignored) {
+                        // 기본 14일
+                    }
+                }
+            }
+        }
+        if ("GET".equals(method) && "/deposits/unprocessed".equals(path)) {
+            send(ex, 200, label(db.query("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, balance, branch, account_masked, fetched_at FROM bank_deposit WHERE approved = 0 AND deposit_amount > 0 AND tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY tx_date DESC, tx_time DESC, id DESC LIMIT 500", days)));
+            return;
+        }
+        if ("GET".equals(method) && "/deposits/processed".equals(path)) {
+            send(ex, 200, label(db.query("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, account_masked, approved_by, approved_operator, approved_note, approved_claim_id, approved_at FROM bank_deposit WHERE approved = 1 AND tx_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) ORDER BY approved_at DESC, id DESC LIMIT 500", days)));
+            return;
+        }
+        if ("GET".equals(method) && "/deposits/actions".equals(path)) {
+            send(ex, 200, db.query("SELECT id, bank_deposit_id, action, operator, note, memo, amount, acted_at FROM deposit_action WHERE acted_at >= DATE_SUB(NOW(), INTERVAL ? DAY) ORDER BY id DESC LIMIT 500", days));
+            return;
+        }
+        if ("POST".equals(method)) {
+            String[] parts = path.split("/");
+            // /deposits/{id}/process · /deposits/{id}/cancel
+            if (parts.length == 4) {
+                long id;
+                try {
+                    id = Long.parseLong(parts[2]);
+                } catch (NumberFormatException e) {
+                    send(ex, 400, Map.of("ok", false, "reason", "id"));
+                    return;
+                }
+                Map<String, Object> body = readJson(ex);
+                String operator = Db.left(Db.str(body.get("operator")).trim(), 50);
+                String note = Db.left(Db.str(body.get("note")).trim(), 200);
+                if (operator.isEmpty()) {
+                    send(ex, 400, Map.of("ok", false, "reason", "operator(슈퍼아이디) 없음"));
+                    return;
+                }
+                List<Map<String, Object>> rows = db.query("SELECT id, memo, deposit_amount, approved, approved_by FROM bank_deposit WHERE id = ?", id);
+                if (rows.isEmpty()) {
+                    send(ex, 404, Map.of("ok", false, "reason", "입금 없음"));
+                    return;
+                }
+                Map<String, Object> d = rows.get(0);
+                if ("process".equals(parts[3])) {
+                    int n = db.update("UPDATE bank_deposit SET approved = 1, approved_by = 'MANUAL', approved_operator = ?, approved_note = ?, approved_at = NOW() WHERE id = ? AND approved = 0", operator, note.isEmpty() ? null : note, id);
+                    if (n == 0) {
+                        send(ex, 409, Map.of("ok", false, "reason", "이미 처리됨(" + Db.str(d.get("approved_by")) + ")"));
+                        return;
+                    }
+                    db.update("INSERT INTO deposit_action (bank_deposit_id, action, operator, note, memo, amount) VALUES (?,?,?,?,?,?)", id, "PROCESS", operator, note.isEmpty() ? null : note, d.get("memo"), d.get("deposit_amount"));
+                    AgentLog.info("입금 처리(사람) " + operator + " ← " + d.get("memo") + " " + d.get("deposit_amount") + "원 #" + id + (note.isEmpty() ? "" : " · " + note));
+                    onDeposits.run();
+                    send(ex, 200, Map.of("ok", true));
+                    return;
+                }
+                if ("cancel".equals(parts[3])) {
+                    String by = Db.str(d.get("approved_by"));
+                    if (Db.toLong(d.get("approved")) != 1) {
+                        send(ex, 409, Map.of("ok", false, "reason", "처리된 입금이 아님"));
+                        return;
+                    }
+                    if (!"MANUAL".equals(by)) {
+                        send(ex, 409, Map.of("ok", false, "reason", ("AUTO".equals(by) ? "에이전트 자동 매칭(서버 적립됨)" : "관리자 영수증 적립") + " 건은 여기서 취소할 수 없음"));
+                        return;
+                    }
+                    db.update("UPDATE bank_deposit SET approved = 0, approved_by = NULL, approved_operator = NULL, approved_note = NULL, approved_claim_id = NULL, approved_at = NULL WHERE id = ? AND approved = 1 AND approved_by = 'MANUAL'", id);
+                    db.update("INSERT INTO deposit_action (bank_deposit_id, action, operator, note, memo, amount) VALUES (?,?,?,?,?,?)", id, "CANCEL", operator, note.isEmpty() ? null : note, d.get("memo"), d.get("deposit_amount"));
+                    AgentLog.info("입금 처리 취소(사람) " + operator + " ← " + d.get("memo") + " " + d.get("deposit_amount") + "원 #" + id + (note.isEmpty() ? "" : " · " + note));
+                    onDeposits.run();
+                    send(ex, 200, Map.of("ok", true));
+                    return;
+                }
+            }
+        }
+        send(ex, 404, Map.of("ok", false, "reason", "not found"));
+    }
+
+    /** account_masked → 계좌 이름 붙임 */
+    private List<Map<String, Object>> label(List<Map<String, Object>> rows) {
+        for (Map<String, Object> r : rows) {
+            r.put("account", cfg.accountLabel(Db.str(r.get("account_masked"))));
+        }
+        return rows;
     }
 
     public Map<String, Object> summary() throws Exception {

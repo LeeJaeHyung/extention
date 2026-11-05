@@ -79,6 +79,10 @@ public class Db {
                 st.execute("ALTER TABLE bank_deposit ADD COLUMN approved_by VARCHAR(20) NULL COMMENT '승인 구분: AUTO=에이전트 매칭 · ADMIN=관리자 영수증 적립' AFTER approved_at");
                 st.execute("UPDATE bank_deposit SET approved_by = 'AUTO' WHERE approved = 1 AND approved_by IS NULL");
             }
+            // 0.2.13: 입금 처리 확인 앱 — 처리한 사람·메모
+            if (!hasColumn(conn, "bank_deposit", "approved_operator")) {
+                st.execute("ALTER TABLE bank_deposit ADD COLUMN approved_operator VARCHAR(50) NULL COMMENT '처리한 사람(입금 처리 확인 앱의 슈퍼아이디)' AFTER approved_by, ADD COLUMN approved_note VARCHAR(200) NULL COMMENT '처리 메모' AFTER approved_operator");
+            }
             if (!hasColumn(conn, "deposit_claim", "amounts")) {
                 st.execute("ALTER TABLE deposit_claim ADD COLUMN amounts VARCHAR(600) NULL COMMENT '맞다고 볼 금액 목록(쉼표)' AFTER account");
             }

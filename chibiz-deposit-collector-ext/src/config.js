@@ -14,9 +14,9 @@
     BANK: Object.freeze({
       /** 같은 PC 의 입금 에이전트. 포트를 바꾸면 manifest.json 의 host_permissions 도 같이 */
       agentUrl: 'http://127.0.0.1:18080',
-      /** 재조회 간격 — 매 회차 10~15분 사이 임의 값 · 조회기간은 어제~오늘 */
-      intervalMinMs: 10 * 60 * 1000,
-      intervalMaxMs: 15 * 60 * 1000,
+      /** 재조회 간격 — 매 회차 8~10분 사이 임의 값(J 2026-11-05 · 전엔 10~15분) · 조회기간은 어제~오늘 */
+      intervalMinMs: 8 * 60 * 1000,
+      intervalMaxMs: 10 * 60 * 1000,
       /** 조회 함수 호출 뒤 표가 다시 그려질 때까지 기다리는 한도 */
       requeryTimeoutMs: 30 * 1000,
       /** 응답이 돌아온 뒤 표를 읽기 전에 쉬는 시간(5초) */

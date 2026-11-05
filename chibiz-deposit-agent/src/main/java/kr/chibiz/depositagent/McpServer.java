@@ -204,7 +204,7 @@ public class McpServer {
                 String from = text(a, "from", java.time.LocalDate.now().minusDays(7).toString());
                 String to = text(a, "to", java.time.LocalDate.now().toString());
                 List<Object> args = new ArrayList<>(List.of(from, to));
-                StringBuilder sql = new StringBuilder("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, withdraw_amount, balance, branch, account_masked, approved, approved_by, approved_claim_id, approved_at, remit_updated, remit_updated_at, fetched_at FROM bank_deposit WHERE tx_date BETWEEN ? AND ?");
+                StringBuilder sql = new StringBuilder("SELECT id, tx_date, tx_time, kind, memo, deposit_amount, withdraw_amount, balance, branch, account_masked, approved, approved_by, approved_operator, approved_note, approved_claim_id, approved_at, remit_updated, remit_updated_at, fetched_at FROM bank_deposit WHERE tx_date BETWEEN ? AND ?");
                 if (!text(a, "memo", "").isEmpty()) {
                     sql.append(" AND memo LIKE ?");
                     args.add("%" + text(a, "memo", "") + "%");
