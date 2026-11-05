@@ -37,7 +37,8 @@ public class HttpApi {
     }
 
     public void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", cfg.port), 16);
+        String bind = cfg.httpBind == null || cfg.httpBind.isBlank() ? "127.0.0.1" : cfg.httpBind.trim();
+        server = HttpServer.create(new InetSocketAddress(bind, cfg.port), 16);
         server.createContext("/", this::handle);
         server.setExecutor(Executors.newFixedThreadPool(4, r -> {
             Thread t = new Thread(r, "http");
@@ -45,7 +46,7 @@ public class HttpApi {
             return t;
         }));
         server.start();
-        AgentLog.info("입금 에이전트 HTTP 시작 http://127.0.0.1:" + cfg.port);
+        AgentLog.info("입금 에이전트 HTTP 시작 http://" + bind + ":" + cfg.port + ("127.0.0.1".equals(bind) ? "" : (cfg.httpKey == null || cfg.httpKey.isBlank() ? " (외부 요청 전부 거절: httpKey 없음)" : " (외부 요청은 X-AGENT-KEY 필요)")));
     }
 
     public void stop() {
@@ -61,6 +62,17 @@ public class HttpApi {
             if ("OPTIONS".equals(method)) {
                 send(ex, 204, Map.of());
                 return;
+            }
+            // 같은 PC(127.0.0.1)가 아닌 접속은 접근 키 확인(J 2026-11-05)
+            java.net.InetAddress from = ex.getRemoteAddress() == null ? null : ex.getRemoteAddress().getAddress();
+            boolean local = from != null && from.isLoopbackAddress();
+            if (!local) {
+                String key = ex.getRequestHeaders().getFirst("X-AGENT-KEY");
+                if (cfg.httpKey == null || cfg.httpKey.isBlank() || key == null || !cfg.httpKey.equals(key.trim())) {
+                    AgentLog.warn("HTTP 접근 거절 " + (from == null ? "?" : from.getHostAddress()) + " " + method + " " + path + (key == null ? " (키 없음)" : " (키 불일치)"));
+                    send(ex, 403, Map.of("ok", false, "reason", "forbidden"));
+                    return;
+                }
             }
             if ("GET".equals(method) && "/health".equals(path)) {
                 db.query("SELECT 1");

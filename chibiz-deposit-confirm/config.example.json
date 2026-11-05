@@ -1,5 +1,6 @@
 {
   "agentUrl": "http://127.0.0.1:18080",
+  "agentKey": "",
   "days": 14,
   "refreshSec": 30
 }

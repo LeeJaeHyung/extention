@@ -18,9 +18,19 @@ public class AgentClient {
     private static final ObjectMapper M = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final String base;
+    private final String key;
 
-    public AgentClient(String base) {
+    public AgentClient(String base, String key) {
         this.base = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        this.key = key == null ? "" : key.trim();
+    }
+
+    private HttpRequest.Builder req(String path) {
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(15));
+        if (!key.isEmpty()) {
+            b.header("X-AGENT-KEY", key);
+        }
+        return b;
     }
 
     public Map<String, Object> health() throws IOException, InterruptedException {
@@ -50,7 +60,7 @@ public class AgentClient {
     }
 
     private String get(String path) throws IOException, InterruptedException {
-        HttpRequest req = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(15)).GET().build();
+        HttpRequest req = req(path).GET().build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (res.statusCode() != 200) {
             throw new IOException("HTTP " + res.statusCode() + " " + path);
@@ -59,7 +69,7 @@ public class AgentClient {
     }
 
     private String post(String path, Map<String, Object> body) throws IOException, InterruptedException {
-        HttpRequest req = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(15))
+        HttpRequest req = req(path)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(M.writeValueAsString(body), StandardCharsets.UTF_8)).build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

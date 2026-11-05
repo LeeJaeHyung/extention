@@ -11,6 +11,8 @@ import java.io.IOException;
 public class Config {
     /** 같은 PC 의 입금 에이전트 HTTP */
     public String agentUrl = "http://127.0.0.1:18080";
+    /** 에이전트가 다른 PC 에 있을 때 보내는 접근 키(에이전트 config.httpKey 와 같은 값). 같은 PC 면 비워도 됨 */
+    public String agentKey = "";
     /** 미처리·처리 내역을 며칠까지 볼지 */
     public int days = 14;
     /** 자동 새로고침(초) */

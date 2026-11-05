@@ -93,7 +93,7 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         cfg = Config.load();
-        client = new AgentClient(cfg.agentUrl);
+        client = new AgentClient(cfg.agentUrl, cfg.agentKey);
 
         BorderPane root = new BorderPane();
         root.getStyleClass().add("canvas");

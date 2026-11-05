@@ -12,6 +12,10 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Config {
     public int port = 18080;
+    /** HTTP 바인드 주소. 127.0.0.1 = 이 PC 만 · 0.0.0.0 = 사내망에서도 접속(그때는 httpKey 필수) — J 2026-11-05 입금 처리 확인 앱을 다른 PC 에서 쓰기 위해 */
+    public String httpBind = "127.0.0.1";
+    /** 127.0.0.1 이 아닌 곳에서 오는 요청은 헤더 X-AGENT-KEY 가 이 값과 같아야 한다. 비어 있으면 외부 요청은 전부 거절 */
+    public String httpKey = "";
     public Db db = new Db();
     public Matching matching = new Matching();
     public List<Site> sites = new ArrayList<>();
