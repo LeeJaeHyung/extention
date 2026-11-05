@@ -15,10 +15,10 @@ BrandingText "chibiz"
 !define MUI_UNICON "${ICONFILE}"
 !endif
 
-VIProductVersion "0.1.3.0"
+VIProductVersion "0.1.4.0"
 VIAddVersionKey "ProductName" "차이비즈 입금 처리 확인"
 VIAddVersionKey "FileDescription" "차이비즈 입금 처리 확인 설치"
-VIAddVersionKey "FileVersion" "0.1.3"
+VIAddVersionKey "FileVersion" "0.1.4"
 VIAddVersionKey "CompanyName" "chibiz"
 VIAddVersionKey "LegalCopyright" "chibiz"
 
@@ -57,7 +57,7 @@ Section "프로그램 (필수)" SEC_APP
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayIcon" "$INSTDIR\ChibizDepositConfirm.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "Publisher" "chibiz"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayVersion" "0.1.3"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayVersion" "0.1.4"
   CreateDirectory "$SMPROGRAMS\차이비즈"
   CreateShortCut "$SMPROGRAMS\차이비즈\차이비즈 입금 처리 확인.lnk" "$INSTDIR\ChibizDepositConfirm.exe"
   CreateShortCut "$SMPROGRAMS\차이비즈\입금 처리 확인 제거.lnk" "$INSTDIR\Uninstall.exe"

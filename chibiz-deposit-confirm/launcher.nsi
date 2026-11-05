@@ -7,10 +7,10 @@ RequestExecutionLevel user
 !ifdef ICONFILE
 Icon "${ICONFILE}"
 !endif
-VIProductVersion "0.1.3.0"
+VIProductVersion "0.1.4.0"
 VIAddVersionKey "ProductName" "차이비즈 입금 처리 확인"
 VIAddVersionKey "FileDescription" "차이비즈 입금 처리 확인"
-VIAddVersionKey "FileVersion" "0.1.3"
+VIAddVersionKey "FileVersion" "0.1.4"
 VIAddVersionKey "CompanyName" "chibiz"
 VIAddVersionKey "LegalCopyright" "chibiz"
 
