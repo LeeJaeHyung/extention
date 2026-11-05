@@ -170,8 +170,8 @@ public class App extends Application {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        TableView<Map<String, Object>> t1 = table(unprocessed, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80",
-                "memo:적요(입금자명):240", "deposit_amount:입금액:130:won", "balance:잔액:120:won", "branch:거래점:110", "fetched_at:읽은 시각:140");
+        TableView<Map<String, Object>> t1 = table(unprocessed, "account:계좌:170", "tx_date:거래일자:110", "tx_time:시간:70",
+                "memo:적요(입금자명):280", "deposit_amount:입금액:140:won", "balance:잔액:130:won", "branch:거래점:120");
         t1.getColumns().add(0, buttonColumn("처리", "button-info", 90, this::processRow, r -> true));
         Label l1 = new Label("계좌");
         l1.getStyleClass().add("stat-caption");
