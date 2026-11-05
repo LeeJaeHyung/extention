@@ -55,6 +55,9 @@ public class App extends Application {
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss");
     private static final NumberFormat WON = NumberFormat.getIntegerInstance(Locale.KOREA);
 
+    /** 처리자 — SuperID 는 플랫폼 이름(J 2026-11-05). 사람 아이디를 묻지 않고 이 값을 고정으로 남긴다 */
+    private static final String OPERATOR = "SuperID";
+
     private Config cfg;
     private AgentClient client;
     private final ScheduledExecutorService ui = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -64,7 +67,7 @@ public class App extends Application {
     });
 
     private final Label statusAgent = chip("에이전트 연결 중");
-    private final Label statusOperator = chip("SuperID -");
+    private final Label statusOperator = chip("처리자 SuperID");
     private final Label statusRefresh = chip("새로고침 -");
     private final Label statUnprocessed = stat("0건");
     private final Label statUnprocessedAmount = stat("0원");
@@ -112,10 +115,6 @@ public class App extends Application {
         });
         stage.show();
 
-        if (cfg.operator == null || cfg.operator.isBlank()) {
-            askOperator();
-        }
-        statusOperator.setText("SuperID " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
         sub.setText("에이전트 " + cfg.agentUrl.replace("http://", "") + " · 최근 " + cfg.days + "일 · " + cfg.refreshSec + "초마다 새로고침");
         accountFilter.setValue("전체 계좌");
         accountFilter.getStyleClass().add("account-filter");
@@ -149,12 +148,8 @@ public class App extends Application {
         VBox left = new VBox(2, title, sub);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button operatorBtn = pill("SuperID 변경", "button-secondary", e -> {
-            askOperator();
-            statusOperator.setText("SuperID " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
-        });
         Button refreshBtn = pill("새로고침", "button-primary", e -> ui.execute(this::refresh));
-        HBox nav = new HBox(8, left, spacer, operatorBtn, refreshBtn);
+        HBox nav = new HBox(8, left, spacer, refreshBtn);
         nav.getStyleClass().add("primary-nav");
         nav.setAlignment(Pos.CENTER_LEFT);
         return nav;
@@ -191,7 +186,7 @@ public class App extends Application {
         VBox.setVgrow(t1, Priority.ALWAYS);
 
         TableView<Map<String, Object>> t2 = table(processed, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "memo:적요(입금자명):220",
-                "deposit_amount:입금액:130:won", "approved_by:구분:100:by", "approved_operator:SuperID:110", "approved_note:메모:200", "approved_claim_id:신청:70", "approved_at:처리 시각:150");
+                "deposit_amount:입금액:130:won", "approved_by:구분:100:by", "approved_operator:처리자:110", "approved_note:메모:200", "approved_claim_id:신청:70", "approved_at:처리 시각:150");
         t2.getColumns().add(0, buttonColumn("취소", "button-secondary", 90, this::cancelRow, r -> "MANUAL".equals(String.valueOf(r.get("approved_by")))));
         Label l3 = new Label("구분");
         l3.getStyleClass().add("stat-caption");
@@ -205,7 +200,7 @@ public class App extends Application {
         VBox box2 = new VBox(0, bar2, t2);
         VBox.setVgrow(t2, Priority.ALWAYS);
 
-        TableView<Map<String, Object>> t3 = table(actions, "acted_at:시각:150", "action:동작:80:act", "operator:SuperID:110", "memo:적요(입금자명):220", "amount:입금액:130:won", "note:메모:300", "bank_deposit_id:입금 번호:90");
+        TableView<Map<String, Object>> t3 = table(actions, "acted_at:시각:150", "action:동작:80:act", "operator:처리자:110", "memo:적요(입금자명):220", "amount:입금액:130:won", "note:메모:300", "bank_deposit_id:입금 번호:90");
 
         tabs.getTabs().addAll(new Tab("미처리 입금", box1), new Tab("처리 내역", box2), new Tab("처리·취소 기록", t3));
         VBox.setVgrow(tabs, Priority.ALWAYS);
@@ -297,11 +292,8 @@ public class App extends Application {
     // ── 처리·취소 ──
 
     private void processRow(Map<String, Object> r) {
-        if (!ensureOperator()) {
-            return;
-        }
         String what = String.valueOf(r.get("memo")) + " · " + WON.format(toLong(r.get("deposit_amount"))) + "원 · " + r.get("tx_date") + " " + r.get("tx_time") + " · " + r.get("account");
-        TextInputDialog d = dialog("입금 처리", what + "\n\nSuperID " + cfg.operator + " 로 «처리» 표시합니다. 이 입금은 자동 대조·AI 검토 후보에서 빠집니다.\n메모(선택):", "");
+        TextInputDialog d = dialog("입금 처리", what + "\n\n처리자 SuperID 로 «처리» 표시합니다. 이 입금은 자동 대조·AI 검토 후보에서 빠집니다.\n메모(선택):", "");
         Optional<String> note = d.showAndWait();
         if (note.isEmpty()) {
             return;
@@ -310,7 +302,7 @@ public class App extends Application {
         ui.execute(() -> {
             String err = null;
             try {
-                err = client.process(id, cfg.operator, note.get());
+                err = client.process(id, OPERATOR, note.get());
             } catch (Exception e) {
                 err = e.getMessage();
             }
@@ -325,11 +317,8 @@ public class App extends Application {
     }
 
     private void cancelRow(Map<String, Object> r) {
-        if (!ensureOperator()) {
-            return;
-        }
         String what = String.valueOf(r.get("memo")) + " · " + WON.format(toLong(r.get("deposit_amount"))) + "원 · " + r.get("tx_date") + " " + r.get("tx_time")
-                + " · SuperID " + r.get("approved_operator");
+                + " · 처리자 " + r.get("approved_operator");
         TextInputDialog d = dialog("처리 취소", what + "\n\n처리를 취소해 다시 «미처리» 로 돌립니다. 자동 대조 후보가 됩니다.\n사유(선택):", "");
         Optional<String> note = d.showAndWait();
         if (note.isEmpty()) {
@@ -339,7 +328,7 @@ public class App extends Application {
         ui.execute(() -> {
             String err = null;
             try {
-                err = client.cancel(id, cfg.operator, note.get());
+                err = client.cancel(id, OPERATOR, note.get());
             } catch (Exception e) {
                 err = e.getMessage();
             }
@@ -353,26 +342,7 @@ public class App extends Application {
         });
     }
 
-    private boolean ensureOperator() {
-        if (cfg.operator == null || cfg.operator.isBlank()) {
-            askOperator();
-        }
-        if (cfg.operator == null || cfg.operator.isBlank()) {
-            alert(Alert.AlertType.WARNING, "SuperID 없음", "SuperID 를 먼저 입력하세요.");
-            return false;
-        }
-        statusOperator.setText("SuperID " + cfg.operator);
-        return true;
-    }
 
-    private void askOperator() {
-        TextInputDialog d = dialog("SuperID", "처리·취소 기록에 남길 SuperID(플랫폼 계정 아이디)를 입력하세요.", cfg.operator == null ? "" : cfg.operator);
-        Optional<String> v = d.showAndWait();
-        if (v.isPresent() && !v.get().isBlank()) {
-            cfg.operator = v.get().trim();
-            cfg.save();
-        }
-    }
 
     // ── 공통 위젯 ──
 

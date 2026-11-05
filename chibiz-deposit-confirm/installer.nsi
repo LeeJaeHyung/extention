@@ -15,16 +15,16 @@ BrandingText "chibiz"
 !define MUI_UNICON "${ICONFILE}"
 !endif
 
-VIProductVersion "0.1.1.0"
+VIProductVersion "0.1.2.0"
 VIAddVersionKey "ProductName" "차이비즈 입금 처리 확인"
 VIAddVersionKey "FileDescription" "차이비즈 입금 처리 확인 설치"
-VIAddVersionKey "FileVersion" "0.1.1"
+VIAddVersionKey "FileVersion" "0.1.2"
 VIAddVersionKey "CompanyName" "chibiz"
 VIAddVersionKey "LegalCopyright" "chibiz"
 
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "차이비즈 입금 처리 확인 설치"
-!define MUI_WELCOMEPAGE_TEXT "같은 PC 의 입금 에이전트가 가진 통장 입금 가운데 아직 처리되지 않은 것을 보고, 담당자가 [처리]·[취소] 하는 프로그램입니다.$\r$\n$\r$\n자바 런타임이 포함돼 있어 별도 설치가 필요 없습니다. 입금 에이전트(127.0.0.1:18080)가 켜져 있어야 합니다.$\r$\n$\r$\n첫 실행 때 처리자(슈퍼아이디)를 묻습니다."
+!define MUI_WELCOMEPAGE_TEXT "같은 PC 의 입금 에이전트가 가진 통장 입금 가운데 아직 처리되지 않은 것을 보고, 담당자가 [처리]·[취소] 하는 프로그램입니다.$\r$\n$\r$\n자바 런타임이 포함돼 있어 별도 설치가 필요 없습니다. 입금 에이전트(127.0.0.1:18080)가 켜져 있어야 합니다.$\r$\n$\r$\n처리·취소 기록의 처리자는 SuperID(플랫폼 이름)로 남습니다."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\ChibizDepositConfirm.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "지금 실행"
 
@@ -57,7 +57,7 @@ Section "프로그램 (필수)" SEC_APP
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayIcon" "$INSTDIR\ChibizDepositConfirm.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "Publisher" "chibiz"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayVersion" "0.1.1"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ChibizDepositConfirm" "DisplayVersion" "0.1.2"
   CreateDirectory "$SMPROGRAMS\차이비즈"
   CreateShortCut "$SMPROGRAMS\차이비즈\차이비즈 입금 처리 확인.lnk" "$INSTDIR\ChibizDepositConfirm.exe"
   CreateShortCut "$SMPROGRAMS\차이비즈\입금 처리 확인 제거.lnk" "$INSTDIR\Uninstall.exe"
