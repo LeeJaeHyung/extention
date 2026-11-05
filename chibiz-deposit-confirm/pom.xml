@@ -5,7 +5,7 @@
 
     <groupId>kr.chibiz</groupId>
     <artifactId>chibiz-deposit-confirm</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <packaging>jar</packaging>
     <name>차이비즈 입금 처리 확인 (JavaFX)</name>
     <description>입금 에이전트의 미처리 입금을 보고 사람이 처리·취소하는 데스크톱 프로그램 (같은 PC 의 에이전트 HTTP 127.0.0.1:18080 사용)</description>

@@ -132,3 +132,7 @@
 /* 입금 처리 확인 앱 — 표 안의 작은 알약 버튼 */
 .pill-sm { -fx-font-size: 12px; -fx-padding: 4px 14px; -fx-min-height: 26px; -fx-pref-height: 26px; }
 .text-input-dialog .content.label { -fx-font-size: 14px; }
+
+/* 처리 버튼 — DESIGN-nike.md info #1151ff (눌림 info-deep #0034e3) */
+.button-info { -fx-background-color: #1151ff; -fx-text-fill: #ffffff; }
+.button-info:pressed { -fx-background-color: #0034e3; -fx-opacity: 0.9; -fx-scale-x: 0.96; -fx-scale-y: 0.96; }

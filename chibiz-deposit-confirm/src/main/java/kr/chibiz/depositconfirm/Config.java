@@ -11,7 +11,7 @@ import java.io.IOException;
 public class Config {
     /** 같은 PC 의 입금 에이전트 HTTP */
     public String agentUrl = "http://127.0.0.1:18080";
-    /** 처리·취소에 남길 사람(슈퍼아이디). 비어 있으면 시작할 때 묻는다 */
+    /** 처리·취소에 남길 SuperID(플랫폼 계정 아이디). 비어 있으면 시작할 때 묻는다 */
     public String operator = "";
     /** 미처리·처리 내역을 며칠까지 볼지 */
     public int days = 14;

@@ -64,7 +64,7 @@ public class App extends Application {
     });
 
     private final Label statusAgent = chip("에이전트 연결 중");
-    private final Label statusOperator = chip("처리자 -");
+    private final Label statusOperator = chip("SuperID -");
     private final Label statusRefresh = chip("새로고침 -");
     private final Label statUnprocessed = stat("0건");
     private final Label statUnprocessedAmount = stat("0원");
@@ -115,7 +115,7 @@ public class App extends Application {
         if (cfg.operator == null || cfg.operator.isBlank()) {
             askOperator();
         }
-        statusOperator.setText("처리자 " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
+        statusOperator.setText("SuperID " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
         sub.setText("에이전트 " + cfg.agentUrl.replace("http://", "") + " · 최근 " + cfg.days + "일 · " + cfg.refreshSec + "초마다 새로고침");
         accountFilter.setValue("전체 계좌");
         accountFilter.getStyleClass().add("account-filter");
@@ -149,9 +149,9 @@ public class App extends Application {
         VBox left = new VBox(2, title, sub);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button operatorBtn = pill("처리자 변경", "button-secondary", e -> {
+        Button operatorBtn = pill("SuperID 변경", "button-secondary", e -> {
             askOperator();
-            statusOperator.setText("처리자 " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
+            statusOperator.setText("SuperID " + (cfg.operator == null || cfg.operator.isBlank() ? "-" : cfg.operator));
         });
         Button refreshBtn = pill("새로고침", "button-primary", e -> ui.execute(this::refresh));
         HBox nav = new HBox(8, left, spacer, operatorBtn, refreshBtn);
@@ -177,7 +177,7 @@ public class App extends Application {
 
         TableView<Map<String, Object>> t1 = table(unprocessed, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "kind:구분:80",
                 "memo:적요(입금자명):240", "deposit_amount:입금액:130:won", "balance:잔액:120:won", "branch:거래점:110", "fetched_at:읽은 시각:140");
-        t1.getColumns().add(0, buttonColumn("처리", "button-primary", 90, this::processRow, r -> true));
+        t1.getColumns().add(0, buttonColumn("처리", "button-info", 90, this::processRow, r -> true));
         Label l1 = new Label("계좌");
         l1.getStyleClass().add("stat-caption");
         Label l2 = new Label("검색");
@@ -191,7 +191,7 @@ public class App extends Application {
         VBox.setVgrow(t1, Priority.ALWAYS);
 
         TableView<Map<String, Object>> t2 = table(processed, "account:계좌:170", "tx_date:거래일자:100", "tx_time:시간:70", "memo:적요(입금자명):220",
-                "deposit_amount:입금액:130:won", "approved_by:구분:100:by", "approved_operator:처리자:110", "approved_note:메모:200", "approved_claim_id:신청:70", "approved_at:처리 시각:150");
+                "deposit_amount:입금액:130:won", "approved_by:구분:100:by", "approved_operator:SuperID:110", "approved_note:메모:200", "approved_claim_id:신청:70", "approved_at:처리 시각:150");
         t2.getColumns().add(0, buttonColumn("취소", "button-secondary", 90, this::cancelRow, r -> "MANUAL".equals(String.valueOf(r.get("approved_by")))));
         Label l3 = new Label("구분");
         l3.getStyleClass().add("stat-caption");
@@ -205,7 +205,7 @@ public class App extends Application {
         VBox box2 = new VBox(0, bar2, t2);
         VBox.setVgrow(t2, Priority.ALWAYS);
 
-        TableView<Map<String, Object>> t3 = table(actions, "acted_at:시각:150", "action:동작:80:act", "operator:처리자:110", "memo:적요(입금자명):220", "amount:입금액:130:won", "note:메모:300", "bank_deposit_id:입금 번호:90");
+        TableView<Map<String, Object>> t3 = table(actions, "acted_at:시각:150", "action:동작:80:act", "operator:SuperID:110", "memo:적요(입금자명):220", "amount:입금액:130:won", "note:메모:300", "bank_deposit_id:입금 번호:90");
 
         tabs.getTabs().addAll(new Tab("미처리 입금", box1), new Tab("처리 내역", box2), new Tab("처리·취소 기록", t3));
         VBox.setVgrow(tabs, Priority.ALWAYS);
@@ -301,7 +301,7 @@ public class App extends Application {
             return;
         }
         String what = String.valueOf(r.get("memo")) + " · " + WON.format(toLong(r.get("deposit_amount"))) + "원 · " + r.get("tx_date") + " " + r.get("tx_time") + " · " + r.get("account");
-        TextInputDialog d = dialog("입금 처리", what + "\n\n처리자 " + cfg.operator + " 로 «처리» 표시합니다. 이 입금은 자동 대조·AI 검토 후보에서 빠집니다.\n메모(선택):", "");
+        TextInputDialog d = dialog("입금 처리", what + "\n\nSuperID " + cfg.operator + " 로 «처리» 표시합니다. 이 입금은 자동 대조·AI 검토 후보에서 빠집니다.\n메모(선택):", "");
         Optional<String> note = d.showAndWait();
         if (note.isEmpty()) {
             return;
@@ -329,7 +329,7 @@ public class App extends Application {
             return;
         }
         String what = String.valueOf(r.get("memo")) + " · " + WON.format(toLong(r.get("deposit_amount"))) + "원 · " + r.get("tx_date") + " " + r.get("tx_time")
-                + " · 처리자 " + r.get("approved_operator");
+                + " · SuperID " + r.get("approved_operator");
         TextInputDialog d = dialog("처리 취소", what + "\n\n처리를 취소해 다시 «미처리» 로 돌립니다. 자동 대조 후보가 됩니다.\n사유(선택):", "");
         Optional<String> note = d.showAndWait();
         if (note.isEmpty()) {
@@ -358,15 +358,15 @@ public class App extends Application {
             askOperator();
         }
         if (cfg.operator == null || cfg.operator.isBlank()) {
-            alert(Alert.AlertType.WARNING, "처리자 없음", "처리자(슈퍼아이디)를 먼저 입력하세요.");
+            alert(Alert.AlertType.WARNING, "SuperID 없음", "SuperID 를 먼저 입력하세요.");
             return false;
         }
-        statusOperator.setText("처리자 " + cfg.operator);
+        statusOperator.setText("SuperID " + cfg.operator);
         return true;
     }
 
     private void askOperator() {
-        TextInputDialog d = dialog("처리자", "처리·취소 기록에 남길 처리자(슈퍼아이디)를 입력하세요.", cfg.operator == null ? "" : cfg.operator);
+        TextInputDialog d = dialog("SuperID", "처리·취소 기록에 남길 SuperID(플랫폼 계정 아이디)를 입력하세요.", cfg.operator == null ? "" : cfg.operator);
         Optional<String> v = d.showAndWait();
         if (v.isPresent() && !v.get().isBlank()) {
             cfg.operator = v.get().trim();
