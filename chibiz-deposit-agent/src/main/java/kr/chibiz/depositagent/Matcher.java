@@ -125,7 +125,7 @@ public class Matcher {
                 if (txAt(d).isBefore(earliest)) {
                     continue;
                 }
-                if (nameMatches(names, normName(Db.str(d.get("memo"))))) {
+                if (nameMatches(names, Db.str(d.get("memo")))) {
                     continue; // 이름까지 같으면 정규 대조가 처리한다
                 }
                 List<Map<String, Object>> seen = db.query("SELECT id FROM ai_review WHERE site_code = ? AND claim_id = ? AND bank_deposit_id = ?",
@@ -457,17 +457,30 @@ public class Matcher {
      * 정규화한 은행 입금자명이 후보 중 하나와 «정확히 같은가»(J 2026-11-02: 포함·앞부분 일치 없음).
      * 금액은 따로 원 단위까지 맞춰 보고, 이름은 공백·법인표기 제거 뒤 완전 일치만 인정한다.
      */
-    static boolean nameMatches(List<String> names, String bank) {
-        if (bank == null || bank.isEmpty()) {
+    static boolean nameMatches(List<String> names, String memo) {
+        String bank = normName(memo);
+        if (bank.isEmpty()) {
             return false;
         }
+        // 은행 적요는 최대 10글자라 긴 회사명은 끝이 잘려 들어온다(예: «(주)아워크리에이티» ← «(주)아워크리에이티브»).
+        // 적요가 꽉 찬 10글자면 «앞부분 일치»도 인정한다 — 금액은 여전히 원 단위까지 같아야 한다 (J 2026-11-06).
+        boolean truncated = memo != null && memo.length() >= MEMO_MAX_LEN; // 10글자 제한은 공백 포함
         for (String c : names) {
-            if (!c.isEmpty() && bank.equals(c)) {
+            if (c.isEmpty()) {
+                continue;
+            }
+            if (bank.equals(c)) {
+                return true;
+            }
+            if (truncated && bank.length() >= 3 && c.length() > bank.length() && c.startsWith(bank)) {
                 return true;
             }
         }
         return false;
     }
+
+    /** 하나은행 빠른조회 적요(입금자명) 최대 글자 수 — 그 이상은 잘린다. */
+    static final int MEMO_MAX_LEN = 10;
 
     void runMatch(String reason) throws Exception {
         if (!matching.compareAndSet(false, true)) {
@@ -514,7 +527,7 @@ public class Matcher {
                     if (!amountMatches(c, Db.toLong(d.get("deposit_amount")))) {
                         continue;
                     }
-                    if (!nameMatches(names, normName(Db.str(d.get("memo"))))) {
+                    if (!nameMatches(names, Db.str(d.get("memo")))) {
                         continue;
                     }
                     if (txAt(d).isBefore(earliest)) {
@@ -597,7 +610,7 @@ public class Matcher {
                     if (!amounts.contains(Db.toLong(d.get("deposit_amount")))) {
                         continue;
                     }
-                    if (!nameMatches(names, normName(Db.str(d.get("memo"))))) {
+                    if (!nameMatches(names, Db.str(d.get("memo")))) {
                         continue;
                     }
                     LocalDateTime at = txAt(d);
